@@ -6,9 +6,9 @@ window.Press = (() => {
   "use strict";
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const TRAVEL = 10;          // how far the cap sinks, in stage px
-  const PRESS_MS = 1700;      // slow, laboured travel to the bottom
-  const CURVE = 2.2;          // resists at first, then gives way
+  // sink distance, holding duration, rebound duration and the motion curve are live
+  // settings (js/tuning.js); with the default "Ease In" the key resists at first, then gives way
+  const K = () => Tuning.live.key;
   const HOLD_MS = 450;        // pause at full depth before it can rise
   const OPEN_SCALE = 0.15;    // gathered curtain width
 
@@ -19,8 +19,10 @@ window.Press = (() => {
 
     // ---------- drawing ----------
     function drawButton(p) {
-      cap.style.transform = `translateY(${(TRAVEL * p).toFixed(2)}px)`;
-      well.style.height = `${(TRAVEL * p).toFixed(2)}px`;
+      // a spring may overshoot a little past the bottom or above the rest position
+      const d = K().travel * Math.max(-.3, Math.min(1.25, p));
+      cap.style.transform = `translateY(${d.toFixed(2)}px)`;
+      well.style.height = `${Math.max(0, d).toFixed(2)}px`;
     }
     function drawCurtains(s) {   // s: 1 closed → OPEN_SCALE open
       left.style.transform = `scaleX(${s})`;
@@ -29,7 +31,6 @@ window.Press = (() => {
 
     // ---------- timing ----------
     const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    const easeSine = t => -(Math.cos(Math.PI * t) - 1) / 2;
     function tween(ms, step, ease = t => t, lane = 'run') {
       const cur = () => lane === 'run' ? run : scene;
       const id = cur();
@@ -85,12 +86,13 @@ window.Press = (() => {
       phase = 'pressing';
       play.classList.add('is-contact');
       // continue from the current depth so a re-press mid-return feels continuous
-      pressStart = performance.now() - Math.pow(depth, 1 / CURVE) * PRESS_MS;
+      const ms = () => reduce ? 400 : K().hold;
+      pressStart = performance.now() - Tuning.invert(Tuning.ease('key'), depth) * ms();
       const id = run;
       const tick = now => {
         if (id !== run || phase !== 'pressing') return;
-        const t = Math.min(1, (now - pressStart) / (reduce ? 400 : PRESS_MS));
-        depth = Math.pow(t, CURVE);
+        const t = Math.min(1, (now - pressStart) / ms());
+        depth = Tuning.ease('key')(t);
         drawButton(depth);
         if (t >= 1) { bottomOut(); return; }
         requestAnimationFrame(tick);
@@ -112,7 +114,8 @@ window.Press = (() => {
       if (phase === 'pressing') {            // released early: spring back
         phase = 'returning';
         const from = depth;
-        await tween(500 + 450 * from, k => { depth = from * (1 - k); drawButton(depth); }, easeSine);
+        // a partial press rises in proportion to how deep it went
+        await tween(K().rebound * (.4 + .6 * from), k => { depth = from * (1 - Tuning.ease('key')(k)); drawButton(depth); });
         if (phase === 'returning') phase = 'idle';
       } else if (phase === 'bottomed') {     // full press: rise, then power the set
         phase = 'powering';
@@ -121,7 +124,7 @@ window.Press = (() => {
         if (remain > 0) await wait(remain);      // the button rests at the bottom before letting go
         if (id !== run) return;
         release();
-        await tween(520, k => { depth = 1 - k; drawButton(depth); }, easeSine);
+        await tween(K().rebound, k => { depth = 1 - Tuning.ease('key')(k); drawButton(depth); });
         if (id !== run) return;
         play.classList.remove('is-armed');
         play.classList.add('is-spent');
@@ -177,8 +180,17 @@ window.Press = (() => {
       drawCurtains(1);
       dim.style.opacity = 0.12;
     }
+    // jump straight to "powered on" (curtains open), for trying later steps from the panel
+    function openNow() {
+      run++; scene++;
+      phase = 'on';
+      play.classList.remove('is-contact', 'is-armed');
+      play.classList.add('is-spent');
+      play.tabIndex = -1;
+      drawButton(0); drawCurtains(OPEN_SCALE); dim.style.opacity = 0;
+    }
     reset();
-    return { arm, reset };
+    return { arm, reset, openNow };
   }
 
   return { create };

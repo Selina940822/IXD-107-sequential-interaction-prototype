@@ -114,6 +114,12 @@ window.Tear = (() => {
     let dirty = true, shake = 0;
     let flapTh = 0, flapThT = 0;    // direction of the flap from the slit centre
     const STEP = 40;                // image px of outward pull per increment
+    // drag distance to complete, edge roughness, fold shadow and settle curve are live settings (js/tuning.js)
+    const PP = () => Tuning.live.paper;
+    const rough = () => PP().roughness / 100;
+    const fib = i => FIB[i] * (.3 + .7 * rough());   // fibrous margin: thinner when smooth, never gone
+    let ripped = 0;                 // outward pull applied so far (image px)
+    let relT = 1, relFold = .5, relDrag = {x:0, y:0};   // settle of the flap after letting go
     const FLAP_HW = .36;            // flap half-width (radians)
     const FLAP_D = 38;
 
@@ -124,7 +130,7 @@ window.Tear = (() => {
       return Math.cos(rel/FLAP_HW*Math.PI/2);
     }
     function idxOf(th){ return ((Math.round((th < 0 ? th + Math.PI*2 : th)/(Math.PI*2)*NT) % NT) + NT) % NT; }
-    function baseR(i){ const g = G[i]; return Math.max(R0[i], R0[i] + (R1[i] - R0[i])*g + JAG[i]*(6 + .085*(R0[i] + (R1[i]-R0[i])*g))*Math.sqrt(g)); }
+    function baseR(i){ const g = G[i]; return Math.max(R0[i], R0[i] + (R1[i] - R0[i])*g + JAG[i]*rough()*(6 + .085*(R0[i] + (R1[i]-R0[i])*g))*Math.sqrt(g)); }
     function radii(){
       const r = new Float32Array(NT), rl = new Float32Array(NT);
       const fl = done ? 0 : fold;
@@ -133,7 +139,8 @@ window.Tear = (() => {
     }
     function advance(th){
       // tear runs a little further in this direction; neighbours follow so the edge stays continuous
-      const W = .8, amt = .04 + Math.random()*.02;
+      // each rip opens less when a longer drag is needed to complete the tear
+      const W = .8, amt = (.04 + Math.random()*.02) * 1600 / PP().tearDistance;
       for(let i=0;i<NT;i++){
         const rel = Math.abs(wrapAngle(theta[i] - th));
         if(rel < W){ const w = Math.pow(Math.cos(rel/W*Math.PI/2), 1.6); G[i] = Math.min(1, G[i] + amt*w); }
@@ -219,16 +226,16 @@ window.Tear = (() => {
 
       // 4. ragged white fibre along the torn edge
       ctx.beginPath(); holePath(ctx, rl);
-      for(let i=NT-1;i>=0;i--){ const f = FIB[i]*(.6 + .4*Math.min(1, meanG()*4 + .4)); const [x,y] = pt(i, rl[i] + f); i === NT-1 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); }
+      for(let i=NT-1;i>=0;i--){ const f = fib(i)*(.6 + .4*Math.min(1, meanG()*4 + .4)); const [x,y] = pt(i, rl[i] + f); i === NT-1 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); }
       ctx.closePath(); ctx.fillStyle = 'rgba(238,238,238,.95)'; ctx.fill('evenodd');
-      ctx.beginPath(); for(let i=0;i<=NT;i++){ const ii = i%NT, [x,y] = pt(ii, rl[ii] + FIB[ii]*(.6 + .4*Math.min(1, meanG()*4 + .4))); i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }
+      ctx.beginPath(); for(let i=0;i<=NT;i++){ const ii = i%NT, [x,y] = pt(ii, rl[ii] + fib(ii)*(.6 + .4*Math.min(1, meanG()*4 + .4))); i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }
       ctx.lineWidth = .8; ctx.strokeStyle = 'rgba(90,90,90,.6)'; ctx.stroke();
 
       // brightened edge where the hand is
       if(hoverA > .01 && !done){
         ctx.beginPath(); let started = false;
         for(let d=-40; d<=40; d++){
-          const i = (idxOf(hoverTh) + d + NT) % NT, f = FIB[i]*(.6 + .4*Math.min(1, meanG()*4 + .4));
+          const i = (idxOf(hoverTh) + d + NT) % NT, f = fib(i)*(.6 + .4*Math.min(1, meanG()*4 + .4));
           const [x,y] = pt(i, rl[i] + f*.5); started ? ctx.lineTo(x,y) : (ctx.moveTo(x,y), started = true);
         }
         ctx.lineWidth = 2.6; ctx.strokeStyle = `rgba(255,255,255,${.75*hoverA})`; ctx.shadowColor = `rgba(255,255,255,${.6*hoverA})`; ctx.shadowBlur = 8*k; ctx.stroke(); ctx.shadowBlur = 0;
@@ -238,21 +245,22 @@ window.Tear = (() => {
         const {crease, tip} = flapPoly(rl);
         if(crease.length > 2){
           ctx.save();
-          if(done){ ctx.globalAlpha = 1 - flapGone; ctx.translate(Math.cos(flapTh)*flapGone*120, flapGone*180); }
+          if(done){ const fg = Math.min(1, Math.max(0, Tuning.ease('paper')(flapGone))); ctx.globalAlpha = 1 - fg; ctx.translate(Math.cos(flapTh)*fg*120, fg*180); }
           ctx.beginPath(); crease.forEach(([x,y],n) => n ? ctx.lineTo(x,y) : ctx.moveTo(x,y)); for(let n=tip.length-1;n>=0;n--) ctx.lineTo(...tip[n]); ctx.closePath();
           const m = Math.floor(crease.length/2), [cx,cy] = crease[m], [tx,ty] = tip[m];
           const gr = ctx.createLinearGradient(cx, cy, tx, ty);
           const lift = .55 + .45*(fold - .5)*2;
           const hi = Math.round(214 + 30*hoverA), lo = Math.round(150 + 20*hoverA);
           gr.addColorStop(0, `rgb(${lo},${lo},${lo})`); gr.addColorStop(.45, `rgb(${hi},${hi},${hi})`); gr.addColorStop(1, `rgb(${Math.min(255,hi+10)},${Math.min(255,hi+10)},${Math.min(255,hi+10)})`);
-          ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = (10 + 14*lift)*k; ctx.shadowOffsetX = (4 + drag.x*.08)*k; ctx.shadowOffsetY = (6 + 6*lift)*k;
+          const sh = PP().shadow / 100;
+          ctx.shadowColor = `rgba(0,0,0,${sh.toFixed(3)})`; ctx.shadowBlur = (10 + 14*lift)*k*(.4 + sh); ctx.shadowOffsetX = (4 + drag.x*.08)*k; ctx.shadowOffsetY = (6 + 6*lift)*k;
           ctx.fillStyle = gr; ctx.fill();
           ctx.shadowColor = 'transparent';
           // brightened torn edge on hover / grab
           ctx.beginPath(); tip.forEach(([x,y],n) => n ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
           ctx.lineWidth = 1 + 1.4*hoverA; ctx.strokeStyle = `rgba(255,255,255,${.35 + .6*hoverA})`; ctx.stroke();
           ctx.beginPath(); crease.forEach(([x,y],n) => n ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
-          ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+          ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(0,0,0,${(.12 + .4*sh).toFixed(3)})`; ctx.stroke();
           ctx.restore();
         }
       }
@@ -294,9 +302,9 @@ window.Tear = (() => {
         const [ex, ey] = pt(i, baseR(i));
         dragT = { x: Math.max(-70, Math.min(70, (x - ex)*.8)), y: Math.max(-70, Math.min(70, (y - ey)*.8)) };
         if(stretch >= STEP && G[i] < 1){
-          advance(th); foldT = .78; shake = 2.2;
+          advance(th); foldT = .78; shake = 2.2; ripped += STEP;
           rip(.4 + Math.random()*.6);
-          if(meanG() > .9) complete();
+          if(ripped >= PP().tearDistance || meanG() > .95) complete();
         }
         dirty = true; return;
       }
@@ -317,6 +325,7 @@ window.Tear = (() => {
     function release(){
       if(!held) return;
       held = false; foldT = .5; dragT = {x:0, y:0};
+      relT = 0; relFold = fold; relDrag = {...drag};
       canvas.style.cursor = hover && !done ? SHARDS : STAR;
     }
     canvas.addEventListener('pointerup', release);
@@ -336,16 +345,22 @@ window.Tear = (() => {
       requestAnimationFrame(frame);
       if(!ready) return;
       const hA = (hover || held) && !done ? 1 : 0;
-      const moving = Math.abs(wrapAngle(flapThT - flapTh)) > .002 || (finishFrom && finishT < 1) || Math.abs(fold - foldT) > .002 || Math.abs(drag.x - dragT.x) > .1 || Math.abs(drag.y - dragT.y) > .1 || Math.abs(hoverA - hA) > .01 || shake > .05 || (done && flapGone < 1);
+      const moving = relT < 1 || Math.abs(wrapAngle(flapThT - flapTh)) > .002 || (finishFrom && finishT < 1) || Math.abs(fold - foldT) > .002 || Math.abs(drag.x - dragT.x) > .1 || Math.abs(drag.y - dragT.y) > .1 || Math.abs(hoverA - hA) > .01 || shake > .05 || (done && flapGone < 1);
       if(!moving && !dirty) return;
-      // springy, slightly underdamped settle for the flap
-      fold += (foldT - fold)*(held ? .35 : .12);
-      drag.x += (dragT.x - drag.x)*(held ? .4 : .14); drag.y += (dragT.y - drag.y)*(held ? .4 : .14);
+      if(held){                                   // the flap follows the hand closely
+        fold += (foldT - fold)*.35;
+        drag.x += (dragT.x - drag.x)*.4; drag.y += (dragT.y - drag.y)*.4;
+      } else if(relT < 1){                        // let go: it settles back along the chosen curve
+        relT = Math.min(1, relT + 1/42);
+        const e = Tuning.ease('paper')(relT);
+        fold = relFold + (.5 - relFold)*e;
+        drag.x = relDrag.x*(1 - e); drag.y = relDrag.y*(1 - e);
+      } else { fold = foldT; drag.x = dragT.x; drag.y = dragT.y; }
       hoverA += (hA - hoverA)*.2;
       shake *= .7; if(shake < .05) shake = 0;
       if(done) flapGone = Math.min(1, flapGone + .025);
       { const dth = wrapAngle(flapThT - flapTh); flapTh = wrapAngle(flapTh + dth*(held ? .5 : .2)); }
-      if(finishFrom && finishT < 1){ finishT = Math.min(1, finishT + .02); const e = finishT*finishT*(3-2*finishT); for(let i=0;i<NT;i++) G[i] = finishFrom[i] + (1 - finishFrom[i])*e; }
+      if(finishFrom && finishT < 1){ finishT = Math.min(1, finishT + .02); const e = Math.min(1.05, Tuning.ease('paper')(finishT)); for(let i=0;i<NT;i++) G[i] = finishFrom[i] + (1 - finishFrom[i])*e; }
       dirty = false;
       draw();
       if(done && flapGone >= 1 && finishT >= 1 && !reported){ reported = true; onDone && onDone(); }
@@ -362,6 +377,7 @@ window.Tear = (() => {
       stop();
       G = new Float32Array(NT); fold = foldT = .5; drag = {x:0,y:0}; dragT = {x:0,y:0}; done = false; flapGone = 0; held = false; hover = false; hoverA = 0;
       flapTh = flapThT = angR - .57; finishFrom = null; finishT = 1; reported = false;
+      ripped = 0; relT = 1;
       canvas.style.cursor = STAR; dirty = true;
     }
     return { start, stop, reset, loaded };

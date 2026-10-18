@@ -30,15 +30,17 @@ window.Strum = (() => {
 
     /* ---------- strings (geometry comes from the SVG) ---------- */
     const N = 72;                      // nodes per string
-    const MAX_D = 72;                  // bend limit (image px)
-    const PLUCK_MIN = 30;              // bend needed for a full pluck
+    // maximum pull, vibration amplitude, decay time and decay curve are live settings (js/tuning.js)
+    const ST = () => Tuning.live.strings;
+    const maxD = () => ST().maxPull;              // bend limit (image px)
+    const pluckMin = () => maxD() * .42;          // bend needed for a full pluck
     const FREQS = [82.41,110,146.83,196,246.94,329.63];
     let strings = [], surface = null, ready = false, running = false, finished = false;
 
     function makeString(i, x1, y1, x2, y2, w){
       const dx = x2-x1, dy = y2-y1, len = Math.hypot(dx,dy);
       return { i, x1, y1, x2, y2, w, len, ux:dx/len, uy:dy/len, nx:-dy/len, ny:dx/len,
-        y:new Float32Array(N), v:new Float32Array(N), steps: 9 + i*1.6, damp: .9988 - i*.00008,
+        y:new Float32Array(N), v:new Float32Array(N), steps: 9 + i*1.6, damp: 1, relAt: 0, g: 1,
         hover:0, held:false, grabT:.5, d:0, raw:0, moved:0 };
     }
 
@@ -176,8 +178,11 @@ window.Strum = (() => {
       if(!bufs[i]) bufs[i] = ksBuffer(a, FREQS[i]);
       const s = a.createBufferSource(), g = a.createGain(), lp = a.createBiquadFilter();
       s.buffer = bufs[i]; lp.type = 'lowpass'; lp.frequency.value = 1400 + amp*3600;
-      g.gain.value = .25 + amp*.55;
-      s.connect(lp).connect(g).connect(a.destination); s.start();
+      const peak = Math.min(1.4, (.25 + amp*.55) * ST().amplitude / 100), dur = ST().decay, E = Tuning.ease('strings');
+      const curve = new Float32Array(64);
+      for(let k=0;k<64;k++) curve[k] = Math.max(0, peak * (1 - E(k/63)));
+      g.gain.setValueCurveAtTime(curve, a.currentTime, dur);
+      s.connect(lp).connect(g).connect(a.destination); s.start(); s.stop(a.currentTime + dur + .05);
     }
     function tick(){
       const a = Sound.audio(); if(!a) return;
@@ -228,13 +233,13 @@ window.Strum = (() => {
         const f = a.off / (a.off - b.off), t = a.t + (b.t - a.t)*f;
         if(t < .04 || t > .96) continue;
         const dir = Math.sign(b.off - a.off) || 1;
-        const amp = Math.max(10, Math.min(MAX_D*.8, 10 + speed*16));
+        const amp = Math.max(10, Math.min(maxD()*.8, 10 + speed*16));
         s.v.fill(0); triangle(s, Math.max(.08, Math.min(.92, t)), dir*amp);
-        s.lastStrum = now; s.hover = 1;
-        pluckSound(s.i, amp/MAX_D);
+        s.lastStrum = now; s.hover = 1; s.relAt = now;
+        pluckSound(s.i, amp/maxD());
         strum.count++; strum.peak = Math.max(strum.peak, amp);
       }
-      if(strum.count >= 3 && strum.peak >= PLUCK_MIN*.8) revealSlit();
+      if(strum.count >= 3 && strum.peak >= pluckMin()*.8) revealSlit();
       strum.x = x; strum.y = y; strum.t = now;
     }
 
@@ -245,9 +250,9 @@ window.Strum = (() => {
         const p = project(held, x, y);
         held.raw = p.off - held.off0;
         held.moved = Math.max(held.moved, Math.hypot(x-downAt[0], y-downAt[1]));
-        held.d = MAX_D * Math.tanh(held.raw / MAX_D);          // elastic limit
-        if(Math.abs(held.raw) > MAX_D*1.7){                    // pulled too far: the string slips and the gesture becomes a strum
-          release(); strum = { x, y, t: now, count: 1, peak: MAX_D };
+        held.d = maxD() * Math.tanh(held.raw / maxD());          // elastic limit
+        if(Math.abs(held.raw) > maxD()*1.7){                    // pulled too far: the string slips and the gesture becomes a strum
+          release(); strum = { x, y, t: now, count: 1, peak: maxD() };
           return;
         }
         triangle(held, held.grabT, held.d);
@@ -268,20 +273,20 @@ window.Strum = (() => {
       if(!s){ strum = { x, y, t: performance.now(), count: 0, peak: 0 }; return; }
       const p = project(s, x, y);
       held = s; hovered = s; s.held = true; s.grabT = Math.max(.08, Math.min(.92, p.t));
-      s.off0 = 0; s.raw = p.off; s.d = MAX_D*Math.tanh(p.off/MAX_D); s.moved = 0; downAt = [x,y];
+      s.off0 = 0; s.raw = p.off; s.d = maxD()*Math.tanh(p.off/maxD()); s.moved = 0; downAt = [x,y];
       s.v.fill(0); triangle(s, s.grabT, s.d);
     });
     function release(){
       if(!held) return;
-      const s = held; held = null; s.held = false; s.v.fill(0);
+      const s = held; held = null; s.held = false; s.v.fill(0); s.relAt = performance.now();
       const amp = Math.abs(s.d);
       if(s.moved < 4 && amp < 6){                      // click without dragging: small recoil
         triangle(s, s.grabT, (Math.random() < .5 ? -1 : 1) * 4.5); tick();
-      } else if(amp >= PLUCK_MIN){                     // full pluck
-        triangle(s, s.grabT, s.d); pluckSound(s.i, amp/MAX_D);
+      } else if(amp >= pluckMin()){                     // full pluck
+        triangle(s, s.grabT, s.d); pluckSound(s.i, amp/maxD());
         revealSlit();
       } else {                                          // gentle: springs back, muted
-        triangle(s, s.grabT, s.d); pluckSound(s.i, amp/MAX_D * .25);
+        triangle(s, s.grabT, s.d); pluckSound(s.i, amp/maxD() * .25);
       }
     }
     function end(e){
@@ -317,11 +322,20 @@ window.Strum = (() => {
         for(let j=1;j<N-1;j++) y[j] += v[j];
       }
     }
+    // the string swings freely while the envelope fades it: full at release, gone after the
+    // decay time, following the chosen curve; the amplitude setting scales the swing
+    function envelope(s, now){
+      if(s.held || !s.relAt) return 1;
+      const t = (now - s.relAt) / (ST().decay * 1000);
+      if(t >= 1){ s.y.fill(0); s.v.fill(0); s.relAt = 0; return 1; }
+      const into = Math.min(1, (now - s.relAt) / 60);          // ease the amplitude in over the first 60 ms
+      return (1 - Tuning.ease('strings')(t)) * (1 + (ST().amplitude / 100 - 1) * into);
+    }
     function drawString(s, X, Y){
-      const tension = Math.min(1, Math.abs(s.held ? s.d : 0)/MAX_D);
+      const tension = Math.min(1, Math.abs(s.held ? s.d : 0)/maxD());
       const lw = s.w * (1.25 - tension*.35) * 1.4;
       ctx.beginPath();
-      for(let j=0;j<N;j++){ const t = j/(N-1), px = s.x1 + (s.x2-s.x1)*t + s.nx*s.y[j], py = s.y1 + (s.y2-s.y1)*t + s.ny*s.y[j]; j ? ctx.lineTo(X(px),Y(py)) : ctx.moveTo(X(px),Y(py)); }
+      for(let j=0;j<N;j++){ const t = j/(N-1), yj = s.y[j]*s.g, px = s.x1 + (s.x2-s.x1)*t + s.nx*yj, py = s.y1 + (s.y2-s.y1)*t + s.ny*yj; j ? ctx.lineTo(X(px),Y(py)) : ctx.moveTo(X(px),Y(py)); }
       return lw;
     }
     function frame(now){
@@ -343,7 +357,7 @@ window.Strum = (() => {
       }
       if(slit > .002) drawTear(X, Y, k);
 
-      for(const s of strings){ step(s); s.hover += ((s === hovered || s.held ? 1 : 0) - s.hover) * .2; }
+      for(const s of strings){ step(s); s.g = envelope(s, now); s.hover += ((s === hovered || s.held ? 1 : 0) - s.hover) * .2; }
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       // shadows cast on the screen surface
       for(const s of strings){

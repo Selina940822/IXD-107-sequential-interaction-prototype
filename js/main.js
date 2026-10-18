@@ -329,8 +329,7 @@
   /* ---------- restart ---------- */
   let step = 'room';
   $('restart').addEventListener('click', restart);
-  function restart() {
-    Sound.playClick();
+  function resetAll() {
     token++;
     step = 'room';
     Sound.stopMusic();
@@ -344,9 +343,27 @@
     running.splice(0).forEach(a => a.cancel());
     Object.values(scenes).forEach(s => { s.style.transform = ''; s.style.opacity = ''; s.style.zIndex = ''; s.style.pointerEvents = ''; });
     screen.classList.remove('is-strum', 'is-tearing');
+  }
+  function restart() {
+    Sound.playClick();
+    resetAll();
     tvHotspot.hidden = false;
     show('room');
     animate(scenes.room, [{ opacity: 0 }, { opacity: 1 }], { duration: 900, easing: 'ease' });
     tvHotspot.focus({ preventScroll: true });
   }
+
+  // jump straight to one interactive step (used by the control panel's "Try it" buttons)
+  function jump(to) {
+    resetAll();
+    Sound.audio();
+    tvHotspot.hidden = true;
+    show('tv');
+    if (to === 'play') { step = 'play'; press.arm(); $('play').focus({ preventScroll: true }); return; }
+    press.openNow();
+    Sound.startMusic();
+    if (to === 'strum') { strum.start(); screen.classList.add('is-strum'); step = 'strum'; }
+    if (to === 'tear') { tear.start(); screen.classList.add('is-strum', 'is-tearing'); step = 'tear'; }
+  }
+  window.Sequence = { jump, restart };
 })();
