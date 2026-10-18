@@ -6,16 +6,16 @@ window.Tuning = (() => {
 
   const SAVED = {
     // motion
-    key: { hold: 400, travel: 6, rebound: 150, motion: 'Ease In-Out' },
+    key: { hold: 400, travel: 6, rebound: 150, motion: 'Spring/Bounce' },
     strings: { maxPull: 39, amplitude: 70, decay: 4.7, motion: 'Linear' },
     paper: { tearDistance: 1000, roughness: 60, shadow: 30, motion: 'Ease In' },
     // graphics
     stringsLook: { count: 6, length: 100, width: 60, color: '#d6dede', chord: 'E minor' },
     paperLook: { fibres: 35, fibreLength: 6, fibreWidth: 1, paperColor: '#eeeeee', fibreColor: '#fafafa' },
     glow: { layers: 3, spread: 11, width: 1.5, color: '#fbffcc', motion: 'Ease In-Out' },
-    dialog: { width: 480, border: 3.5, pink: '#f08cb3', cyan: '#5fb9c0', eyes: 2, eyeShape: 'Almond', eyeWidth: 68, eyeHeight: 30, pupil: 22, eyeColor: '#ffffff', pupilColor: '#222222', motion: 'Spring/Bounce' },
-    effects: { columns: 69, rows: 9, dotSize: 6.5, ringWidth: 32, colorA: '#ff6fae', colorB: '#6ff3fb', motion: 'Ease Out' },
-    notes: { count: 5, shape: 'Mixed', size: 36, orbitWidth: 150, orbitHeight: 35, lap: 6, glow: 6, colorA: '#ffffff', colorB: '#ff6fae', motion: 'Linear' }
+    dialog: { width: 480, border: 3, pink: '#f08cb3', cyan: '#5fb9c0', eyes: 2, eyeShape: 'Almond', eyeWidth: 68, eyeHeight: 30, pupil: 25, eyeColor: '#ffffff', pupilColor: '#222222', motion: 'Spring/Bounce' },
+    effects: { columns: 80, rows: 9, dotSize: 7, ringWidth: 15, colorA: '#ff6fae', colorB: '#6ff3fb', motion: 'Ease Out' },
+    notes: { count: 0, shape: 'Mixed', size: 51, orbitWidth: 230, orbitHeight: 20, lap: 6, glow: 5, colorA: '#ffffff', colorB: '#ff6fae', motion: 'Linear' }
   };
 
   // the six notes of each chord, low E string first (Hz)
