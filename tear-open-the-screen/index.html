@@ -1,0 +1,352 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Tear Open the Screen</title>
+<style>
+/* Layout: one grayscale paper screen, contained and centered; a single reset control in the corner. */
+:root{
+  color-scheme:dark;
+  --ground:#0d0d0d;
+  --line:#5a5a5a;
+  --ink:#d8d8d8;
+  --ink-hi:#ffffff;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--ground);color:var(--ink);overflow:hidden;display:grid;place-items:center;padding-inline:16px;box-sizing:border-box}
+.stage{position:relative;width:min(100%, calc((100vh - 96px) * 1.3778));aspect-ratio:1393/1011;max-width:100%}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:default}
+#reset{position:fixed;right:max(16px, env(safe-area-inset-right,0px));top:calc(16px + env(safe-area-inset-top,0px));width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink);display:grid;place-items:center;cursor:pointer;padding:0;transition:border-color .2s,color .2s,transform .4s}
+#reset:hover{border-color:var(--ink);color:var(--ink-hi)}
+#reset:active{transform:rotate(-120deg)}
+#reset:focus-visible{outline:2px solid var(--ink-hi);outline-offset:3px}
+#reset svg{width:20px;height:20px}
+</style>
+
+<div class="stage"><canvas id="c" aria-label="Paper screen with a torn slit"></canvas></div>
+<button id="reset" type="button" aria-label="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg></button>
+
+<script>
+(() => {
+"use strict";
+const IW = 1393, IH = 1011, RX = 44;
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+
+/* ---------- seeded noise (the tear path is fixed) ---------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function periodicNoise(n, r, octaves){
+  const out = new Float32Array(n);
+  for(const [cells, amp] of octaves){
+    const pts = Array.from({length: cells}, () => r()*2-1);
+    for(let i=0;i<n;i++){
+      const f = i/n*cells, i0 = Math.floor(f), t = f - i0, s = t*t*(3-2*t);
+      out[i] += amp * (pts[i0%cells]*(1-s) + pts[(i0+1)%cells]*s);
+    }
+  }
+  return out;
+}
+
+/* ---------- scene data (from the SVG) ---------- */
+let paper = null, entrance = null, strings = [], slitPoly = [], ready = false;
+const NT = 420;                                   // samples around the tear
+let C = {x:727, y:540}, R0, R1, JAG, FIB, theta = new Float32Array(NT), angR = 0;
+
+function load(){
+  const svgP = fetch('guitar-closeup-slit.svg').then(r => r.text()).then(txt => {
+    const doc = new DOMParser().parseFromString(txt, 'image/svg+xml');
+    const img = doc.getElementById('guitar-closeup');
+    const href = img.getAttribute('href') || img.getAttributeNS('http://www.w3.org/1999/xlink','href');
+    strings = [...doc.querySelectorAll('#strings line[id^="string-"]')].map(l => ({
+      x1:+l.getAttribute('x1'), y1:+l.getAttribute('y1'), x2:+l.getAttribute('x2'), y2:+l.getAttribute('y2'), w:+l.getAttribute('stroke-width')||2 }));
+    const poly = doc.querySelector('#slit-hole polygon');
+    slitPoly = poly.getAttribute('points').trim().split(/\s+/).map(p => p.split(',').map(Number));
+    return loadImg(href);
+  });
+  return Promise.all([svgP, loadImg('entrance.webp')]).then(([p, e]) => { paper = p; entrance = e; build(); flapTh = flapThT = angR - .57; ready = true; resize(); dirty = true; });
+}
+function loadImg(src){ return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; }); }
+
+function build(){
+  // centre of the slit and direction of the strings
+  let sx = 0, sy = 0; for(const [x,y] of slitPoly){ sx += x; sy += y; } C = {x: sx/slitPoly.length, y: sy/slitPoly.length};
+  const s = strings[2] || strings[0]; angR = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);   // pointing to the right, up the neck
+  const r = rng(20261011);
+  R0 = new Float32Array(NT); R1 = new Float32Array(NT);
+  JAG = periodicNoise(NT, r, [[9,.45],[29,.32],[83,.25],[167,.18]]);
+  const sharp = new Float32Array(NT); let j = 0; for(let i=0;i<NT;i++){ if(r() < .3) j = (r()-.5)*2; sharp[i] = j; }
+  const rem = periodicNoise(NT, r, [[5,.6],[13,.4]]);
+  FIB = new Float32Array(NT); for(let i=0;i<NT;i++) FIB[i] = 1.5 + Math.pow(r(),2)*7;
+  for(let k=0;k<2;k++) for(let i=0;i<NT;i++) FIB[i] = (FIB[(i+NT-1)%NT] + FIB[i]*2 + FIB[(i+1)%NT])/4;
+  for(let i=0;i<NT;i++){
+    const th = i/NT*Math.PI*2; theta[i] = th;
+    const dx = Math.cos(th), dy = Math.sin(th);
+    R0[i] = rayPoly(C.x, C.y, dx, dy, slitPoly);
+    const edge = rayRect(C.x, C.y, dx, dy);
+    R1[i] = edge * (.86 + .2*(rem[i]*.5 + .5));        // ragged remnants of paper stay near the frame
+    JAG[i] = JAG[i] + sharp[i]*.45;
+  }
+}
+function rayPoly(ox, oy, dx, dy, P){
+  let best = 1e9;
+  for(let i=0;i<P.length;i++){
+    const [ax,ay] = P[i], [bx,by] = P[(i+1)%P.length];
+    const ex = bx-ax, ey = by-ay, den = dx*ey - dy*ex; if(Math.abs(den) < 1e-9) continue;
+    const t = ((ax-ox)*ey - (ay-oy)*ex)/den, u = ((ax-ox)*dy - (ay-oy)*dx)/den;
+    if(t > 0 && u >= 0 && u <= 1 && t < best) best = t;
+  }
+  return best === 1e9 ? 2 : best;
+}
+function rayRect(ox, oy, dx, dy){
+  const tx = dx > 0 ? (IW-ox)/dx : dx < 0 ? -ox/dx : 1e9, ty = dy > 0 ? (IH-oy)/dy : dy < 0 ? -oy/dy : 1e9;
+  return Math.min(tx, ty);
+}
+
+/* ---------- tear state ---------- */
+let G = new Float32Array(NT);   // how far the tear has run, per direction (kept on release)
+let fold = .5, foldT = .5;      // flap curl (rest .5, bent → 1)
+let drag = {x:0, y:0}, dragT = {x:0, y:0};
+let done = false, flapGone = 0;
+let held = false, hover = false, hoverA = 0, hoverTh = 0;
+let dirty = true, shake = 0;
+let flapTh = 0, flapThT = 0;    // direction of the flap from the slit centre
+const STEP = 40;                // image px of outward pull per increment
+const FLAP_HW = .36;            // flap half-width (radians)
+const FLAP_D = 38;
+
+function wrapAngle(a){ return (a + Math.PI*3) % (Math.PI*2) - Math.PI; }
+function flapWeight(i){
+  const rel = wrapAngle(theta[i] - flapTh);
+  if(Math.abs(rel) >= FLAP_HW) return 0;
+  return Math.cos(rel/FLAP_HW*Math.PI/2);
+}
+function idxOf(th){ return ((Math.round((th < 0 ? th + Math.PI*2 : th)/(Math.PI*2)*NT) % NT) + NT) % NT; }
+function baseR(i){ const g = G[i]; return Math.max(R0[i], R0[i] + (R1[i] - R0[i])*g + JAG[i]*(6 + .085*(R0[i] + (R1[i]-R0[i])*g))*Math.sqrt(g)); }
+function radii(){
+  const r = new Float32Array(NT), rl = new Float32Array(NT);
+  const fl = done ? 0 : fold;
+  for(let i=0;i<NT;i++){ r[i] = baseR(i); rl[i] = r[i] + FLAP_D*fl*flapWeight(i); }
+  return [r, rl];
+}
+function advance(th){
+  // tear runs a little further in this direction; neighbours follow so the edge stays continuous
+  const W = .8, amt = .04 + Math.random()*.02;
+  for(let i=0;i<NT;i++){
+    const rel = Math.abs(wrapAngle(theta[i] - th));
+    if(rel < W){ const w = Math.pow(Math.cos(rel/W*Math.PI/2), 1.6); G[i] = Math.min(1, G[i] + amt*w); }
+  }
+  for(let pass=0;pass<5;pass++){ const c = G.slice(); for(let i=0;i<NT;i++) G[i] = Math.max(c[i], (c[(i+NT-1)%NT] + c[i]*2 + c[(i+1)%NT])/4); }
+}
+function meanG(){ let s = 0; for(let i=0;i<NT;i++) s += G[i]; return s/NT; }
+
+/* ---------- audio: short paper rips ---------- */
+let actx = null, noiseBuf = null;
+function audio(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(actx && actx.state==='suspended') actx.resume(); return actx; }
+function rip(strength){
+  const a = audio(); if(!a) return;
+  if(!noiseBuf){ noiseBuf = a.createBuffer(1, a.sampleRate*.6, a.sampleRate); const d = noiseBuf.getChannelData(0); for(let n=0;n<d.length;n++) d[n] = (Math.random()*2-1)*(Math.random() < .12 ? 1 : .22); }
+  const t = a.currentTime, dur = .07 + strength*.12;
+  const src = a.createBufferSource(), hp = a.createBiquadFilter(), bp = a.createBiquadFilter(), g = a.createGain();
+  src.buffer = noiseBuf; hp.type = 'highpass'; hp.frequency.value = 700; bp.type = 'bandpass'; bp.frequency.value = 1500 + Math.random()*2500; bp.Q.value = .6;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.22 + .2*strength, t + .006);
+  // crackle: a few stutters inside the rip
+  for(let k=1;k<5;k++){ const tk = t + dur*k/5; g.gain.setValueAtTime((.08 + Math.random()*.25)*(1-k/6), tk); }
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  src.connect(hp).connect(bp).connect(g).connect(a.destination); src.start(t, Math.random()*.3, dur + .02);
+}
+
+/* ---------- geometry for drawing ---------- */
+function pt(i, r){ return [C.x + Math.cos(theta[i])*r, C.y + Math.sin(theta[i])*r]; }
+function flapIdx(){ const out = []; for(let i=0;i<NT;i++) if(flapWeight(i) > 0) out.push(i); out.sort((a,b) => wrapAngle(theta[a]-flapTh) - wrapAngle(theta[b]-flapTh)); return out; }
+function flapPoly(rl){
+  const idx = flapIdx(), crease = [], tip = [];
+  const fl = done ? 0 : fold;
+  for(const i of idx){
+    const w = flapWeight(i), ux = Math.cos(theta[i]), uy = Math.sin(theta[i]);
+    const [cx, cy] = pt(i, rl[i]);
+    const L = FLAP_D*fl*w;
+    tip.push([cx - ux*L*1.05 + drag.x*w*.55, cy - uy*L*1.05 + drag.y*w*.55]);
+    crease.push([cx, cy]);
+  }
+  return {crease, tip};
+}
+function inPoly(x, y, P){ let c = false; for(let i=0,j=P.length-1;i<P.length;j=i++){ const [xi,yi]=P[i],[xj,yj]=P[j]; if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) c = !c; } return c; }
+
+/* ---------- drawing ---------- */
+let dpr = 1, k = 1;
+function resize(){
+  const r = canvas.getBoundingClientRect();
+  dpr = Math.min(2.5, window.devicePixelRatio || 1);
+  canvas.width = Math.round(r.width*dpr); canvas.height = Math.round(r.height*dpr);
+  k = canvas.width / IW; dirty = true;
+}
+addEventListener('resize', resize);
+
+function roundRect(c, x, y, w, h, r){ c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+function holePath(c, rl){ c.moveTo(...pt(0, rl[0])); for(let i=1;i<NT;i++) c.lineTo(...pt(i, rl[i])); c.closePath(); }
+
+function draw(){
+  const [r, rl] = radii();
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height);
+  const sx = shake ? (Math.random()-.5)*shake : 0, sy = shake ? (Math.random()-.5)*shake : 0;
+  ctx.setTransform(k,0,0,k,sx*k,sy*k);
+  ctx.save(); ctx.beginPath(); roundRect(ctx, 0, 0, IW, IH, RX); ctx.clip();
+
+  // 1. the entrance (only seen through the tear)
+  ctx.save(); ctx.beginPath(); holePath(ctx, rl); ctx.clip();
+  const ew = entrance.width, eh = entrance.height, sc = Math.max(IW/ew, IH/eh), dw = ew*sc, dh = eh*sc;
+  ctx.drawImage(entrance, (IW-dw)/2, (IH-dh)/2, dw, dh);
+  // paper thickness shades the inside of the edge
+  ctx.beginPath(); holePath(ctx, rl);
+  ctx.shadowColor = 'rgba(0,0,0,.75)'; ctx.shadowBlur = 18*k; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.stroke();
+  ctx.restore();
+
+  // 2. the paper (guitar close-up) with the hole cut out
+  ctx.save(); ctx.beginPath(); ctx.rect(0,0,IW,IH); holePath(ctx, rl); ctx.clip('evenodd');
+  ctx.drawImage(paper, 0, 0, IW, IH);
+  ctx.restore();
+
+  // 3. strings: printed on the paper; they span the original slit until the tear runs past it
+  ctx.save(); ctx.beginPath(); ctx.rect(0,0,IW,IH); holePath(ctx, rl); ctx.clip('evenodd');
+  drawStrings(); ctx.restore();
+  const PG = meanG(); if(PG < .05){ ctx.save(); ctx.beginPath(); slitPoly.forEach(([x,y],n) => n ? ctx.lineTo(x,y) : ctx.moveTo(x,y)); ctx.closePath(); ctx.clip(); ctx.globalAlpha = 1 - PG/.05; drawStrings(); ctx.restore(); }
+
+  // 4. ragged white fibre along the torn edge
+  ctx.beginPath(); holePath(ctx, rl);
+  for(let i=NT-1;i>=0;i--){ const f = FIB[i]*(.6 + .4*Math.min(1, meanG()*4 + .4)); const [x,y] = pt(i, rl[i] + f); i === NT-1 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); }
+  ctx.closePath(); ctx.fillStyle = 'rgba(238,238,238,.95)'; ctx.fill('evenodd');
+  ctx.beginPath(); for(let i=0;i<=NT;i++){ const ii = i%NT, [x,y] = pt(ii, rl[ii] + FIB[ii]*(.6 + .4*Math.min(1, meanG()*4 + .4))); i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }
+  ctx.lineWidth = .8; ctx.strokeStyle = 'rgba(90,90,90,.6)'; ctx.stroke();
+
+  // brightened edge where the hand is
+  if(hoverA > .01 && !done){
+    ctx.beginPath(); let started = false;
+    for(let d=-40; d<=40; d++){
+      const i = (idxOf(hoverTh) + d + NT) % NT, f = FIB[i]*(.6 + .4*Math.min(1, meanG()*4 + .4));
+      const [x,y] = pt(i, rl[i] + f*.5); started ? ctx.lineTo(x,y) : (ctx.moveTo(x,y), started = true);
+    }
+    ctx.lineWidth = 2.6; ctx.strokeStyle = `rgba(255,255,255,${.75*hoverA})`; ctx.shadowColor = `rgba(255,255,255,${.6*hoverA})`; ctx.shadowBlur = 8*k; ctx.stroke(); ctx.shadowBlur = 0;
+  }
+  // 5. the curled flap
+  if(!done || flapGone < 1){
+    const {crease, tip} = flapPoly(rl);
+    if(crease.length > 2){
+      ctx.save();
+      if(done){ ctx.globalAlpha = 1 - flapGone; ctx.translate(Math.cos(flapTh)*flapGone*120, flapGone*180); }
+      ctx.beginPath(); crease.forEach(([x,y],n) => n ? ctx.lineTo(x,y) : ctx.moveTo(x,y)); for(let n=tip.length-1;n>=0;n--) ctx.lineTo(...tip[n]); ctx.closePath();
+      const m = Math.floor(crease.length/2), [cx,cy] = crease[m], [tx,ty] = tip[m];
+      const gr = ctx.createLinearGradient(cx, cy, tx, ty);
+      const lift = .55 + .45*(fold - .5)*2;
+      const hi = Math.round(214 + 30*hoverA), lo = Math.round(150 + 20*hoverA);
+      gr.addColorStop(0, `rgb(${lo},${lo},${lo})`); gr.addColorStop(.45, `rgb(${hi},${hi},${hi})`); gr.addColorStop(1, `rgb(${Math.min(255,hi+10)},${Math.min(255,hi+10)},${Math.min(255,hi+10)})`);
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = (10 + 14*lift)*k; ctx.shadowOffsetX = (4 + drag.x*.08)*k; ctx.shadowOffsetY = (6 + 6*lift)*k;
+      ctx.fillStyle = gr; ctx.fill();
+      ctx.shadowColor = 'transparent';
+      // brightened torn edge on hover / grab
+      ctx.beginPath(); tip.forEach(([x,y],n) => n ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
+      ctx.lineWidth = 1 + 1.4*hoverA; ctx.strokeStyle = `rgba(255,255,255,${.35 + .6*hoverA})`; ctx.stroke();
+      ctx.beginPath(); crease.forEach(([x,y],n) => n ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
+      ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+function drawStrings(){
+  ctx.lineCap = 'round';
+  for(const s of strings){ ctx.beginPath(); ctx.moveTo(s.x1+3, s.y1+5); ctx.lineTo(s.x2+3, s.y2+5); ctx.lineWidth = s.w*1.3; ctx.strokeStyle = 'rgba(0,0,0,.32)'; ctx.stroke(); }
+  for(const s of strings){ ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.lineWidth = s.w; ctx.strokeStyle = '#c4c4c4'; ctx.stroke(); }
+}
+
+/* ---------- interaction ---------- */
+function toImg(e){ const b = canvas.getBoundingClientRect(); return [(e.clientX-b.left)/b.width*IW, (e.clientY-b.top)/b.height*IH]; }
+const padPx = () => Math.max(16, 22/(canvas.getBoundingClientRect().width/IW));
+// anything along the torn edge (or the curled flap) can be grabbed, as long as paper remains beyond it
+function grabAt(x, y){
+  if(done) return null;
+  const [, rl] = radii(), {crease, tip} = flapPoly(rl);
+  if(crease.length > 2){
+    const poly = crease.concat(tip.slice().reverse());
+    if(inPoly(x, y, poly)) return flapTh;
+  }
+  const th = Math.atan2(y - C.y, x - C.x), i = idxOf(th), d = Math.hypot(x - C.x, y - C.y);
+  if(G[i] >= .995) return null;
+  if(Math.abs(d - rl[i]) < padPx()) return th;
+  return null;
+}
+let grabTh = 0;
+canvas.addEventListener('pointermove', e => {
+  if(!ready) return;
+  const [x,y] = toImg(e);
+  if(held){
+    const th = Math.atan2(y - C.y, x - C.x), i = idxOf(th);
+    flapThT = th; hoverTh = th;
+    const stretch = Math.hypot(x - C.x, y - C.y) - baseR(i);       // outward pull past the edge
+    const bend = Math.max(0, Math.min(1.15, stretch/STEP));
+    foldT = .5 + .5*Math.min(1, bend);
+    const [ex, ey] = pt(i, baseR(i));
+    dragT = { x: Math.max(-70, Math.min(70, (x - ex)*.8)), y: Math.max(-70, Math.min(70, (y - ey)*.8)) };
+    if(stretch >= STEP && G[i] < 1){
+      advance(th); foldT = .78; shake = 2.2;
+      rip(.4 + Math.random()*.6);
+      if(meanG() > .9) complete();
+    }
+    dirty = true; return;
+  }
+  const g = grabAt(x, y);
+  hover = g !== null; if(hover) hoverTh = g;
+  canvas.style.cursor = hover ? 'grab' : 'default';
+  dirty = true;
+});
+canvas.addEventListener('pointerdown', e => {
+  if(!ready || done) return;
+  const [x,y] = toImg(e);
+  const g = grabAt(x, y); if(g === null) return;
+  e.preventDefault(); audio();
+  canvas.setPointerCapture(e.pointerId);
+  held = true; hover = true; grabTh = g; flapThT = Math.atan2(y - C.y, x - C.x); hoverTh = flapThT;
+  canvas.style.cursor = 'grabbing';
+});
+function release(){
+  if(!held) return;
+  held = false; foldT = .5; dragT = {x:0, y:0};
+  canvas.style.cursor = hover && !done ? 'grab' : 'default';
+}
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+canvas.addEventListener('pointerleave', () => { if(!held){ hover = false; canvas.style.cursor = 'default'; } });
+
+function complete(){
+  done = true; held = false; canvas.style.cursor = 'default';
+  rip(1); setTimeout(() => rip(.7), 120);
+  finishFrom = G.slice(); finishT = 0;
+}
+let finishFrom = null, finishT = 1;
+function resetAll(){
+  G = new Float32Array(NT); fold = foldT = .5; drag = {x:0,y:0}; dragT = {x:0,y:0}; done = false; flapGone = 0; held = false; hover = false; hoverA = 0;
+  flapTh = flapThT = angR - .57; finishFrom = null; finishT = 1;
+  canvas.style.cursor = 'default'; dirty = true;
+}
+document.getElementById('reset').addEventListener('click', resetAll);
+
+/* ---------- loop ---------- */
+function frame(){
+  requestAnimationFrame(frame);
+  if(!ready) return;
+  const hA = (hover || held) && !done ? 1 : 0;
+  const moving = Math.abs(wrapAngle(flapThT - flapTh)) > .002 || (finishFrom && finishT < 1) || Math.abs(fold - foldT) > .002 || Math.abs(drag.x - dragT.x) > .1 || Math.abs(drag.y - dragT.y) > .1 || Math.abs(hoverA - hA) > .01 || shake > .05 || (done && flapGone < 1);
+  if(!moving && !dirty) return;
+  // springy, slightly underdamped settle for the flap
+  fold += (foldT - fold)*(held ? .35 : .12);
+  drag.x += (dragT.x - drag.x)*(held ? .4 : .14); drag.y += (dragT.y - drag.y)*(held ? .4 : .14);
+  hoverA += (hA - hoverA)*.2;
+  shake *= .7; if(shake < .05) shake = 0;
+  if(done) flapGone = Math.min(1, flapGone + .025);
+  { const dth = wrapAngle(flapThT - flapTh); flapTh = wrapAngle(flapTh + dth*(held ? .5 : .2)); }
+  if(finishFrom && finishT < 1){ finishT = Math.min(1, finishT + .02); const e = finishT*finishT*(3-2*finishT); for(let i=0;i<NT;i++) G[i] = finishFrom[i] + (1 - finishFrom[i])*e; }
+  dirty = false;
+  draw();
+}
+load().catch(err => console.error('Could not load assets', err));
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
