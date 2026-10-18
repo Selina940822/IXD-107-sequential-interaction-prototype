@@ -1,4 +1,4 @@
-/* Layout: a fixed 2000×1127 stage (the size of the source frames), scaled to fit the window
+/* Layout: a fixed 2000×1127 (16:9) stage, scaled to fit the window
    and centred on a dark ground. Scenes are stacked layers; only the active one takes input. */
 :root {
   --ground: #0b080b;
@@ -114,20 +114,20 @@ body {
   inset: 0;
   background: radial-gradient(ellipse at 50% 40%, #c6edf3, #b9e1e8 70%, #a9d2d9);
 }
-/* sized to sit inside the opening left by the gathered curtains */
-#band img {
+/* the stage and the four members, cut out so each sways on its own (tools/cut-band.py) */
+.band-stage {
   position: absolute;
-  left: 65px;
-  top: 100px;
-  width: 860px;
-  height: 604px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
+
 .curtain {
   position: absolute;
   top: 0;
   width: 50%;
   height: 100%;
-  background-image: url("../assets/images/tv-closeup.webp");
+  background-image: url("../assets/images/tv-closeup.svg");
   background-size: 2000px 1127px;
   will-change: transform;
 }
@@ -147,54 +147,48 @@ body {
   position: absolute;
   inset: 0;
   background: #000;
-  opacity: .3;
+  opacity: .12;
   pointer-events: none;
 }
-.scanlines {
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .14) 0 2px, transparent 2px 4px);
-  pointer-events: none;
-}
-.glass {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(232, 251, 252, .18), rgba(232, 251, 252, 0) 45%);
-  box-shadow: inset 0 0 60px rgba(0, 0, 0, .55);
-  pointer-events: none;
-}
-
-/* band members: elliptical halos, one at a time */
-.member {
+/* band members: each sways gently from its feet; the one to click next glows along its outline */
+.member, .fig {
   position: absolute;
   padding: 0;
   border: 0;
   background: transparent;
-  border-radius: 50%;
   pointer-events: none;
   outline: none;
+  transform-origin: 50% 100%;
+  animation: sway var(--sway-t, 3.6s) ease-in-out var(--sway-d, 0s) infinite alternate;
 }
-.member[data-i="0"] { left: 64px;  top: 238px; width: 160px; height: 280px; }
-.member[data-i="1"] { left: 434px; top: 104px; width: 200px; height: 228px; }
-.member[data-i="2"] { left: 738px; top: 232px; width: 194px; height: 302px; }
-.member[data-i="3"] { left: 414px; top: 340px; width: 294px; height: 380px; }
+.member img, .fig img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: filter .35s ease;
+}
+.member[data-i="0"], .fig[data-i="0"] { left: 71.1px;  top: 244.2px; width: 147.2px; height: 265.6px; --sway-t: 3.1s; --sway-d: -.4s; }
+.member[data-i="1"], .fig[data-i="1"] { left: 436.7px; top: 111px;   width: 195.1px; height: 214.7px; --sway-t: 2.6s; --sway-d: -1.3s; --sway-a: .6deg; }
+.member[data-i="2"], .fig[data-i="2"] { left: 743.4px; top: 236.2px; width: 181.6px; height: 288.3px; --sway-t: 3.8s; --sway-d: -2.1s; }
+.member[data-i="3"], .fig[data-i="3"] { left: 418.3px; top: 344.1px; width: 287.1px; height: 359.5px; --sway-t: 3.3s; --sway-d: -.9s; --sway-a: .9deg; }
+@keyframes sway {
+  from { transform: rotate(calc(var(--sway-a, 1.2deg) * -1)); }
+  to { transform: rotate(var(--sway-a, 1.2deg)); }
+}
 .member.is-next {
   pointer-events: auto;
   cursor: pointer;
 }
-.member.is-next::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 4px solid var(--halo);
-  filter: blur(3px);
-  opacity: .55;
-  animation: breathe 2.6s ease-in-out infinite;
+.member.is-next img { animation: outline-glow 2.2s ease-in-out infinite; }
+.member.is-next:hover img,
+.member.is-next:focus-visible img {
+  animation: none;
+  filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 10px #fff) drop-shadow(0 0 20px #fff);
 }
-.member.is-next:hover::before,
-.member.is-next:focus-visible::before { animation: none; opacity: .95; }
-.member.is-next:focus-visible { outline: 2px solid #fff; outline-offset: 6px; }
+@keyframes outline-glow {
+  0%, 100% { filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 6px rgba(255, 255, 255, .8)); }
+  50% { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 10px #fff) drop-shadow(0 0 18px rgba(255, 255, 255, .8)); }
+}
 
 /* the play key: the TV's own fourth push-button, cut from the photo so it can sink */
 #play {
@@ -220,7 +214,7 @@ body {
 #play-cap {
   position: absolute;
   inset: 0;
-  background-image: url("../assets/images/tv-closeup.webp");
+  background-image: url("../assets/images/tv-closeup.svg");
   background-size: 2000px 1127px;
   background-position: -1523px -864px;
   border-radius: 2px;
@@ -243,39 +237,70 @@ body {
 #play.is-contact #play-halo { animation: none; opacity: .95; }
 #play.is-spent #play-halo { animation: none; opacity: 0; }
 
-/* ---------- 4–5. guitar close-up ---------- */
-#scene-guitar { background: var(--ground); }
+/* ---------- 4–5. guitar close-up: strum and tear happen inside the TV screen ---------- */
 #strum, #tear {
   position: absolute;
-  left: 223px;
+  left: 0;
   top: 0;
-  width: 1553px;
-  height: 1127px;
+  width: 990px;
+  height: 740px;
   display: block;
   touch-action: none;
   cursor: var(--cursor-star);
-}
-#tear { visibility: hidden; }
-#scene-guitar.is-tearing #tear { visibility: visible; }
-#scene-guitar.is-tearing #strum { visibility: hidden; }
-
-/* ---------- 6. inside ---------- */
-#inside-tv-glow {
-  position: absolute;
-  left: 820px;
-  top: 455px;
-  width: 286px;
-  height: 218px;
-  border-radius: 10% / 14%;
-  background: rgba(220, 250, 252, .9);
-  mix-blend-mode: soft-light;
-  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
-#scene-inside.is-active #inside-tv-glow { animation: flicker 3.4s steps(1) infinite; }
-@keyframes flicker {
-  0% { opacity: .15; } 12% { opacity: .32; } 20% { opacity: .1; } 41% { opacity: .28; }
-  55% { opacity: .18; } 70% { opacity: .35; } 84% { opacity: .12; }
+#screen.is-strum #strum { visibility: visible; pointer-events: auto; }
+#screen.is-tearing #tear { visibility: visible; pointer-events: auto; animation: fade-in .8s ease both; }
+#screen.is-tearing #strum { animation: fade-out .6s ease .8s both; pointer-events: none; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* ---------- 6. inside ---------- */
+/* effects over the performance space; everything blends as light */
+#inside-fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  overflow: visible;
+}
+#inside-fx .beam { transform-box: fill-box; transform-origin: 50% 0; animation: beam-sweep 7s ease-in-out infinite alternate; }
+#inside-fx .beam.b2 { animation-duration: 9s; animation-delay: -3s; }
+@keyframes beam-sweep { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+#inside-tv {
+  position: absolute;
+  left: 828px;
+  top: 461px;
+  width: 277px;
+  height: 211px;
+  border-radius: 10% / 13%;
+  overflow: hidden;
+  background: #c6edf3;
+}
+.mini-band {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 990px;
+  height: 740px;
+  transform-origin: 0 0;
+  transform: scale(.2798, .2851);
+}
+.fig { pointer-events: none; }
+.inside-tv-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 18px rgba(10, 30, 34, .45);
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, .08), rgba(20, 60, 66, .12) 80%);
+  pointer-events: none;
+}
+#scene-inside.is-active .inside-tv-glass { animation: tv-flicker 6s steps(1) infinite; }
+@keyframes tv-flicker {
+  0%, 100% { opacity: 1; } 31% { opacity: .75; } 32% { opacity: 1; } 77% { opacity: .82; } 78% { opacity: 1; }
 }
 
 /* ---------- dialog (after the reference dialog box) ---------- */
@@ -288,6 +313,7 @@ body {
   pointer-events: none;
   filter: drop-shadow(0 0 22px rgba(255, 255, 255, .28));
 }
+.dialog.is-intro { scale: .7; transform-origin: 0 100%; }
 .dialog.is-ending {
   left: 1180px;
   top: 300px;
@@ -374,6 +400,10 @@ body {
 #restart:focus-visible { outline: 3px solid #fff; outline-offset: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .halo-target::before, .member.is-next::before, #play.is-armed #play-halo { animation: none; opacity: .7; }
-  #scene-inside.is-active #inside-tv-glow { animation: none; opacity: .2; }
+  .halo-target::before, #play.is-armed #play-halo { animation: none; opacity: .7; }
+  .member { animation: none; }
+  .member.is-next img { animation: none; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 8px #fff); }
+  #scene-inside.is-active .inside-tv-glass { animation: none; }
+  #inside-fx .beam { animation: none; }
+  .fig { animation: none; }
 }

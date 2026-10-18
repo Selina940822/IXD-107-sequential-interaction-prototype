@@ -139,7 +139,7 @@ window.Press = (() => {
       const id = scene;
       await tween(3200, k => {
         drawCurtains(1 - (1 - OPEN_SCALE) * k);
-        dim.style.opacity = (0.3 * (1 - k)).toFixed(3);
+        dim.style.opacity = (0.12 * (1 - k)).toFixed(3);
       }, easeInOut, 'scene');
       if (id === scene) onPowered && onPowered();
     }
@@ -175,7 +175,7 @@ window.Press = (() => {
       play.tabIndex = -1;
       drawButton(0);
       drawCurtains(1);
-      dim.style.opacity = 0.3;
+      dim.style.opacity = 0.12;
     }
     reset();
     return { arm, reset };

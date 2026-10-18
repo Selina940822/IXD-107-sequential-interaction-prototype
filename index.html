@@ -11,31 +11,33 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- Layout: one 2000×1127 stage scaled to fit the window; each step of the sequence is a scene layer inside it. -->
+  <!-- Layout: one 2000×1127 (16:9) stage scaled to fit the window; every step before entering the TV world happens inside the TV frame.
+       All pictures are vector (tools/vectorize.py), so they stay sharp at any size and through every zoom. -->
   <div id="stage" aria-live="polite">
 
     <!-- 1. The room: a TV on a pedestal, highlighted -->
     <section id="scene-room" class="scene is-active">
-      <img class="scene-bg" src="assets/images/room.webp" alt="An old television on a wooden pedestal in a dark purple room" draggable="false">
+      <img class="scene-bg" src="assets/images/room.svg" alt="An old television on a wooden pedestal in a dark purple room" draggable="false">
       <button id="tv-hotspot" class="halo-target" type="button" aria-label="Look at the television"></button>
     </section>
 
     <!-- 2–3. The TV close-up: play button, curtains, the band -->
     <section id="scene-tv" class="scene">
-      <img class="scene-bg" src="assets/images/tv-closeup.webp" alt="" draggable="false">
+      <img class="scene-bg" src="assets/images/tv-closeup.svg" alt="" draggable="false">
       <div id="screen">
         <div id="band">
-          <img src="assets/images/band.webp" alt="A four-member band on stage" draggable="false">
+          <img class="band-stage" src="assets/images/band-stage.svg" alt="" draggable="false">
+          <button class="member" type="button" data-i="0" aria-label="Bassist" tabindex="-1"><img src="assets/images/band-member-0.svg" alt="" draggable="false"></button>
+          <button class="member" type="button" data-i="1" aria-label="Drummer" tabindex="-1"><img src="assets/images/band-member-1.svg" alt="" draggable="false"></button>
+          <button class="member" type="button" data-i="2" aria-label="Keyboardist" tabindex="-1"><img src="assets/images/band-member-2.svg" alt="" draggable="false"></button>
+          <button class="member" type="button" data-i="3" aria-label="Guitarist" tabindex="-1"><img src="assets/images/band-member-3.svg" alt="" draggable="false"></button>
         </div>
+        <!-- 4–5. strum the strings, then tear the screen open: inside the TV screen, under the curtains -->
+        <canvas id="strum" aria-label="Guitar strings"></canvas>
+        <canvas id="tear" aria-label="Paper screen with a torn slit"></canvas>
         <div id="curtain-left" class="curtain"></div>
         <div id="curtain-right" class="curtain"></div>
         <div id="screen-dim"></div>
-        <div class="scanlines"></div>
-        <div class="glass"></div>
-        <button class="member" type="button" data-i="0" aria-label="Bassist" tabindex="-1"></button>
-        <button class="member" type="button" data-i="1" aria-label="Drummer" tabindex="-1"></button>
-        <button class="member" type="button" data-i="2" aria-label="Keyboardist" tabindex="-1"></button>
-        <button class="member" type="button" data-i="3" aria-label="Guitarist" tabindex="-1"></button>
       </div>
       <div id="play" role="button" aria-label="Play" tabindex="-1">
         <div id="play-well"></div>
@@ -44,16 +46,22 @@
       </div>
     </section>
 
-    <!-- 4–5. The guitar close-up: strum the strings, then tear the screen open -->
-    <section id="scene-guitar" class="scene">
-      <canvas id="strum" aria-label="Guitar strings"></canvas>
-      <canvas id="tear" aria-label="Paper screen with a torn slit"></canvas>
-    </section>
-
     <!-- 6. Inside: the performance space -->
     <section id="scene-inside" class="scene">
-      <img class="scene-bg" src="assets/images/performance.webp" alt="The star-headed guitarist playing beside an old television that shows the band" draggable="false">
-      <div id="inside-tv-glow"></div>
+      <img class="scene-bg" src="assets/images/performance.svg" alt="The star-headed guitarist playing beside an old television that shows the band" draggable="false">
+      <!-- light that moves with the music: spotlights, stage lights, rings from the star, a floor equalizer -->
+      <svg id="inside-fx" viewBox="0 0 2000 1127" aria-hidden="true"></svg>
+      <!-- the TV in the performance space shows the band live: the same cut-outs, swaying -->
+      <div id="inside-tv">
+        <div class="mini-band">
+          <img class="band-stage" src="assets/images/band-stage.svg" alt="" draggable="false">
+          <div class="fig" data-i="0"><img src="assets/images/band-member-0.svg" alt="" draggable="false"></div>
+          <div class="fig" data-i="1"><img src="assets/images/band-member-1.svg" alt="" draggable="false"></div>
+          <div class="fig" data-i="2"><img src="assets/images/band-member-2.svg" alt="" draggable="false"></div>
+          <div class="fig" data-i="3"><img src="assets/images/band-member-3.svg" alt="" draggable="false"></div>
+        </div>
+        <div class="inside-tv-glass"></div>
+      </div>
     </section>
 
     <!-- Dialog box (band introductions and the ending) -->

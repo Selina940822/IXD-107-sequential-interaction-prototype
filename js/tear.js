@@ -7,7 +7,20 @@
 // star (with shards over the edge), and the sequence moves on once the paper has fallen away.
 window.Tear = (() => {
   "use strict";
-  const IW = 1393, IH = 1011, RX = 44;
+  const IW = 1393, IH = 1011, RX = 0;         // the frame the strings and slit are drawn in
+  const FW = 990, FH = 740;                   // the TV screen the canvas fills
+  const S = Math.max(FW / IW, FH / IH);       // cover-fit of that frame into the screen
+  const OX = (FW - IW * S) / 2, OY = (FH - IH * S) / 2;
+  function svgImage(text, w, h){
+    const doc = text.replace(/<svg([^>]*?) width="[\d.]+" height="[\d.]+"/, `<svg$1 width="${Math.round(w)}" height="${Math.round(h)}"`);
+    const url = URL.createObjectURL(new Blob([doc], { type: 'image/svg+xml' }));
+    // rendered once into an offscreen canvas, so the vector file isn't re-drawn every frame
+    return new Promise((res, rej) => { const im = new Image(); im.onload = () => {
+      URL.revokeObjectURL(url);
+      const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h);
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c);
+    }; im.onerror = rej; im.src = url; });
+  }
   const STAR = 'url("assets/images/cursor-star.svg") 16 16, pointer';
   const SHARDS = 'url("assets/images/cursor-star-shards.svg") 24 24, pointer';
 
@@ -42,14 +55,19 @@ window.Tear = (() => {
         x1:+l.getAttribute('x1'), y1:+l.getAttribute('y1'), x2:+l.getAttribute('x2'), y2:+l.getAttribute('y2'), w:+l.getAttribute('stroke-width')||2 }));
       const poly = doc.querySelector('#slit-hole polygon');
       slitPoly = poly.getAttribute('points').trim().split(/\s+/).map(p => p.split(',').map(Number));
-      // the paper uses the colour version of the same close-up (from the strum step) so the two steps match
-      return fetch('assets/images/guitar-closeup-strings.svg').then(r => r.text()).then(t2 => {
-        const im = new DOMParser().parseFromString(t2, 'image/svg+xml').querySelector('image');
-        return loadImg(im.getAttribute('href') || im.getAttributeNS('http://www.w3.org/1999/xlink','href') || href);
-      });
+      // the paper is the same vector close-up as the strum step; the performance space shows through
+      return Promise.all(['assets/images/guitar-closeup.svg', 'assets/images/performance.svg'].map(u => fetch(u).then(r => r.text())));
     });
-    const loaded = Promise.all([svgP, loadImg('assets/images/performance.webp')]).then(([p, e]) => {
-      paper = p; entrance = e; build(); flapTh = flapThT = angR - .57; ready = true; resize(); dirty = true;
+    let paperSVG = null, sceneSVG = null, rasterW = 0;
+    function rerender(){
+      const w = canvas.width; if(!paperSVG || !w || w === rasterW) return;
+      rasterW = w; const c = w / FW;
+      Promise.all([svgImage(paperSVG, IW * S * c, IH * S * c), svgImage(sceneSVG, FW * c, FH * c)]).then(([p, e]) => {
+        if(canvas.width !== w) return; paper = p; entrance = e; ready = true; dirty = true;
+      });
+    }
+    const loaded = svgP.then(([p, e]) => {
+      paperSVG = p; sceneSVG = e; build(); flapTh = flapThT = angR - .57; resize(); dirty = true;
     }).catch(err => console.error('Could not load assets', err));
 
     function build(){
@@ -159,11 +177,14 @@ window.Tear = (() => {
     /* ---------- drawing ---------- */
     let dpr = 1, k = 1;
     function resize(){
-      const r = canvas.getBoundingClientRect();
-      if(!r.width) return;
-      dpr = Math.min(2.5, window.devicePixelRatio || 1);
-      canvas.width = Math.round(r.width*dpr); canvas.height = Math.round(r.height*dpr);
-      k = canvas.width / IW; dirty = true;
+      // the stage's own scale, so a scene transition in progress never lowers the resolution
+      const fit = document.getElementById('stage').getBoundingClientRect().width / 2000;
+      const cssW = canvas.offsetWidth * fit, cssH = canvas.offsetHeight * fit;
+      if(!cssW) return;
+      dpr = Math.min(3, window.devicePixelRatio || 1);
+      canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
+      k = canvas.width / FW * S; dirty = true;
+      rerender();
     }
     addEventListener('resize', resize);
 
@@ -174,13 +195,13 @@ window.Tear = (() => {
       const [r, rl] = radii();
       ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height);
       const sx = shake ? (Math.random()-.5)*shake : 0, sy = shake ? (Math.random()-.5)*shake : 0;
-      ctx.setTransform(k,0,0,k,sx*k,sy*k);
+      ctx.setTransform(k,0,0,k,OX*canvas.width/FW + sx*k,OY*canvas.width/FW + sy*k);
       ctx.save(); ctx.beginPath(); roundRect(ctx, 0, 0, IW, IH, done ? RX*(1-flapGone) : RX); ctx.clip();
 
       // 1. the performance space (only seen through the tear)
       ctx.save(); ctx.beginPath(); holePath(ctx, rl); ctx.clip();
-      const ew = entrance.width, eh = entrance.height, sc = Math.max(IW/ew, IH/eh), dw = ew*sc, dh = eh*sc;
-      ctx.drawImage(entrance, (IW-dw)/2, (IH-dh)/2, dw, dh);
+      // the performance space fills the visible stage frame exactly, as it will once inside
+      ctx.drawImage(entrance, -OX/S, -OY/S, FW/S, FH/S);
       // paper thickness shades the inside of the edge
       ctx.beginPath(); holePath(ctx, rl);
       ctx.shadowColor = 'rgba(0,0,0,.75)'; ctx.shadowBlur = 18*k; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.stroke();
@@ -189,7 +210,6 @@ window.Tear = (() => {
       // 2. the paper (guitar close-up) with the hole cut out
       ctx.save(); ctx.beginPath(); ctx.rect(0,0,IW,IH); holePath(ctx, rl); ctx.clip('evenodd');
       ctx.drawImage(paper, 0, 0, IW, IH);
-      ctx.fillStyle = 'rgba(8,16,18,.22)'; ctx.fillRect(0, 0, IW, IH);
       ctx.restore();
 
       // 3. strings: printed on the paper; they span the original slit until the tear runs past it
@@ -247,8 +267,8 @@ window.Tear = (() => {
     }
 
     /* ---------- interaction ---------- */
-    function toImg(e){ const b = canvas.getBoundingClientRect(); return [(e.clientX-b.left)/b.width*IW, (e.clientY-b.top)/b.height*IH]; }
-    const padPx = () => Math.max(16, 22/(canvas.getBoundingClientRect().width/IW));
+    function toImg(e){ const b = canvas.getBoundingClientRect(); return [((e.clientX-b.left)/b.width*FW - OX)/S, ((e.clientY-b.top)/b.height*FH - OY)/S]; }
+    const padPx = () => Math.max(16, 22/(canvas.getBoundingClientRect().width/FW*S));
     // anything along the torn edge (or the curled flap) can be grabbed, as long as paper remains beyond it
     function grabAt(x, y){
       if(done) return null;

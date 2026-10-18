@@ -7,7 +7,21 @@
 // once the slit has fully opened.
 window.Strum = (() => {
   "use strict";
-  const IW = 1393, IH = 1011;
+  const IW = 1393, IH = 1011;                 // the frame the string geometry is drawn in
+  const FW = 990, FH = 740;                   // the TV screen the canvas fills
+  const S = Math.max(FW / IW, FH / IH);       // cover-fit of that frame into the screen
+  const OX = (FW - IW * S) / 2, OY = (FH - IH * S) / 2;
+  // draws the vector close-up at an exact pixel size, so the canvas never scales a bitmap up
+  function svgImage(text, w, h){
+    const doc = text.replace(/<svg([^>]*?) width="[\d.]+" height="[\d.]+"/, `<svg$1 width="${Math.round(w)}" height="${Math.round(h)}"`);
+    const url = URL.createObjectURL(new Blob([doc], { type: 'image/svg+xml' }));
+    // rendered once into an offscreen canvas, so the vector file isn't re-drawn every frame
+    return new Promise((res, rej) => { const im = new Image(); im.onload = () => {
+      URL.revokeObjectURL(url);
+      const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h);
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c);
+    }; im.onerror = rej; im.src = url; });
+  }
   const STAR = 'url("assets/images/cursor-star.svg") 16 16, pointer';
   const SHARDS = 'url("assets/images/cursor-star-shards.svg") 24 24, pointer';
 
@@ -30,21 +44,21 @@ window.Strum = (() => {
 
     const loaded = fetch('assets/images/guitar-closeup-strings.svg').then(r => r.text()).then(txt => {
       const doc = new DOMParser().parseFromString(txt, 'image/svg+xml');
-      const img = doc.querySelector('image');
-      const href = img.getAttribute('href') || img.getAttributeNS('http://www.w3.org/1999/xlink','href');
       const paths = [...doc.querySelectorAll('[id^="string-"]')];
       strings = paths.map((p,i) => {
         const n = (p.getAttribute('d').match(/-?\d+(\.\d+)?/g) || []).map(Number);
         return makeString(i, n[0], n[1], n[2], n[3], parseFloat(p.getAttribute('stroke-width')) || 2);
       });
-      return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = href; });
-    }).then(im => {
-      // the close-up keeps its colour, dimmed a little so the strings read
-      const off = document.createElement('canvas'); off.width = IW; off.height = IH;
-      const o = off.getContext('2d'); o.drawImage(im, 0, 0, IW, IH);
-      o.fillStyle = 'rgba(8,16,18,.22)'; o.fillRect(0, 0, IW, IH);
-      surface = off; ready = true; resize();
-    }).catch(err => console.error('Could not load guitar-closeup-strings.svg', err));
+      return fetch('assets/images/guitar-closeup.svg').then(r => r.text());
+    }).then(text => {
+      guitarSVG = text; ready = true; resize();
+    }).catch(err => console.error('Could not load the guitar close-up', err));
+    let guitarSVG = null, rasterW = 0;
+    function rerender(){
+      const w = canvas.width; if(!guitarSVG || !w || w === rasterW) return;
+      rasterW = w; const c = w / FW;
+      svgImage(guitarSVG, IW * S * c, IH * S * c).then(im => { if(canvas.width === w) surface = im; });
+    }
 
     /* ---------- slit ---------- */
     let slit = 0, slitTarget = 0, slitStart = 0;
@@ -200,7 +214,7 @@ window.Strum = (() => {
 
     /* ---------- pointer ---------- */
     let held = null, hovered = null, downAt = null, dpr = 1, scale = 1;
-    function toImg(e){ const r = canvas.getBoundingClientRect(); return [ (e.clientX-r.left)/r.width*IW, (e.clientY-r.top)/r.height*IH ]; }
+    function toImg(e){ const r = canvas.getBoundingClientRect(); return [ ((e.clientX-r.left)/r.width*FW - OX)/S, ((e.clientY-r.top)/r.height*FH - OY)/S ]; }
     const tol = () => Math.max(9, 18/scale);
 
     let strum = null;   // {x,y,t,count} while sweeping across the strings
@@ -280,11 +294,14 @@ window.Strum = (() => {
 
     /* ---------- sizing ---------- */
     function resize(){
-      const r = canvas.getBoundingClientRect();
-      if(!r.width) return;
-      dpr = Math.min(2.5, window.devicePixelRatio || 1);
-      canvas.width = Math.round(r.width*dpr); canvas.height = Math.round(r.height*dpr);
-      scale = r.width / IW;
+      // the stage's own scale, so a scene transition in progress never lowers the resolution
+      const fit = document.getElementById('stage').getBoundingClientRect().width / 2000;
+      const cssW = canvas.offsetWidth * fit, cssH = canvas.offsetHeight * fit;
+      if(!cssW) return;
+      dpr = Math.min(3, window.devicePixelRatio || 1);
+      canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
+      scale = cssW / FW * S;
+      rerender();
     }
     addEventListener('resize', resize);
 
@@ -310,12 +327,12 @@ window.Strum = (() => {
     function frame(now){
       if(!running) return;
       requestAnimationFrame(frame);
-      if(!ready) return;
-      const W = canvas.width, H = canvas.height, k = W/IW;
-      const X = x => x*k, Y = y => y*k;
+      if(!ready || !surface) return;
+      const W = canvas.width, H = canvas.height, c = W/FW, k = S*c;
+      const X = x => (x*S + OX)*c, Y = y => (y*S + OY)*c;
       ctx.setTransform(1,0,0,1,0,0);
       ctx.clearRect(0,0,W,H);
-      ctx.drawImage(surface, 0, 0, W, H);
+      ctx.drawImage(surface, OX*c, OY*c, IW*S*c, IH*S*c);
 
       // torn slit, behind the strings
       if(slitTarget && now > slitStart && slit < 1){
