@@ -5,9 +5,9 @@ window.Tuning = (() => {
   "use strict";
 
   const SAVED = {
-    key: { hold: 1700, travel: 10, rebound: 520, motion: 'Ease In' },
-    strings: { maxPull: 72, amplitude: 100, decay: 3, motion: 'Ease Out' },
-    paper: { tearDistance: 1600, roughness: 100, shadow: 60, motion: 'Ease Out' }
+    key: { hold: 400, travel: 6, rebound: 150, motion: 'Ease In-Out' },
+    strings: { maxPull: 30, amplitude: 25, decay: 4.7, motion: 'Ease In-Out' },
+    paper: { tearDistance: 1000, roughness: 60, shadow: 30, motion: 'Ease In' }
   };
 
   // what each value means, for the panel and the copied settings
