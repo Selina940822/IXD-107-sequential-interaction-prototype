@@ -70,9 +70,12 @@
     const merge = el('feMerge', {}, glow); el('feMergeNode', { in: 'b' }, merge); el('feMergeNode', { in: 'SourceGraphic' }, merge);
 
     // thin line through the left and right of the box
-    el('path', { d: 'M-230 120 C-120 118 -60 124 0 120', stroke: 'rgba(255,255,255,.7)', 'stroke-width': 2, fill: 'none' });
-    el('ellipse', { cx: -40, cy: 146, rx: 70, ry: 9, stroke: 'rgba(255,255,255,.55)', 'stroke-width': 1.5, fill: 'none' });
-    el('path', { d: 'M760 112 C820 110 880 108 960 106', stroke: 'rgba(255,255,255,.6)', 'stroke-width': 2, fill: 'none' });
+    // each doodle is its own group, so the panel can show 0–4 of them (star, lightning, eyes, lines)
+    const doodle = name => el('g', { class: 'doodle', 'data-doodle': name });
+    const gLines = doodle('lines'), gStar = doodle('star'), gBolt = doodle('bolt'), gEyes = doodle('eyes');
+    el('path', { d: 'M-230 120 C-120 118 -60 124 0 120', stroke: 'rgba(255,255,255,.7)', 'stroke-width': 2, fill: 'none' }, gLines);
+    el('ellipse', { cx: -40, cy: 146, rx: 70, ry: 9, stroke: 'rgba(255,255,255,.55)', 'stroke-width': 1.5, fill: 'none' }, gLines);
+    el('path', { d: 'M760 112 C820 110 880 108 960 106', stroke: 'rgba(255,255,255,.6)', 'stroke-width': 2, fill: 'none' }, gLines);
 
     // scribbled star: several jittery passes, with pink/cyan misregistration
     let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -84,24 +87,24 @@
       for (let h = 0; h < 14; h++) { const y = cy - 60 + h * 9; d += `M${cx - 55 + rnd() * 20} ${y} L${cx + 35 + rnd() * 20} ${y + 30} `; }
       return d;
     };
-    const g = el('g', { filter: 'url(#deco-glow)', fill: 'none', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
-    el('path', { d: scribble(), stroke: 'rgba(143,227,232,.85)', 'stroke-width': 2.4, transform: 'translate(-3 2)' }, g);
-    el('path', { d: scribble(), stroke: 'rgba(240,140,179,.85)', 'stroke-width': 2.4, transform: 'translate(3 -2)' }, g);
+    const g = el('g', { filter: 'url(#deco-glow)', fill: 'none', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, gStar);
+    el('path', { d: scribble(), class: 'deco-cyan', stroke: 'rgba(143,227,232,.85)', 'stroke-width': 2.4, transform: 'translate(-3 2)' }, g);
+    el('path', { d: scribble(), class: 'deco-pink', stroke: 'rgba(240,140,179,.85)', 'stroke-width': 2.4, transform: 'translate(3 -2)' }, g);
     el('path', { d: scribble(), stroke: '#fff', 'stroke-width': 2.6 }, g);
     // a dangling red cord
-    el('path', { d: 'M-70 -80 C-90 -120 -60 -160 -40 -170 M-40 -170 C-20 -150 -20 -120 -45 -110', stroke: '#c0263a', 'stroke-width': 2.5, fill: 'none' });
+    el('path', { d: 'M-70 -80 C-90 -120 -60 -160 -40 -170 M-40 -170 C-20 -150 -20 -120 -45 -110', stroke: '#c0263a', 'stroke-width': 2.5, fill: 'none' }, gStar);
 
     // lightning bolt
-    el('polygon', { points: '70,-150 150,-75 110,-72 160,-20 60,-60 100,-64', fill: '#fff', filter: 'url(#deco-glow)' });
+    el('polygon', { points: '70,-150 150,-75 110,-72 160,-20 60,-60 100,-64', fill: '#fff', filter: 'url(#deco-glow)' }, gBolt);
     // eyes on the frame corners
     const eye = (x, y) => {
-      el('path', { d: `M${x - 34} ${y} Q${x} ${y - 30} ${x + 34} ${y} Q${x} ${y + 30} ${x - 34} ${y} Z`, fill: '#fff', stroke: '#222', 'stroke-width': 6 });
-      el('circle', { cx: x, cy: y, r: 11, fill: '#222' });
+      el('path', { d: `M${x - 34} ${y} Q${x} ${y - 30} ${x + 34} ${y} Q${x} ${y + 30} ${x - 34} ${y} Z`, fill: '#fff', stroke: '#222', 'stroke-width': 6 }, gEyes);
+      el('circle', { cx: x, cy: y, r: 11, fill: '#222' }, gEyes);
     };
     eye(30, -6);
     // the second eye sits on the box's bottom-right corner, whatever the box size
     const corner = document.createElementNS(NS, 'svg');
-    corner.setAttribute('viewBox', '-40 -40 80 80'); corner.setAttribute('class', 'dialog-eye'); corner.setAttribute('aria-hidden', 'true');
+    corner.setAttribute('viewBox', '-40 -40 80 80'); corner.setAttribute('class', 'dialog-eye doodle'); corner.setAttribute('data-doodle', 'eyes'); corner.setAttribute('aria-hidden', 'true');
     svg.parentNode.querySelector('.dialog-box').appendChild(corner);
     el('path', { d: 'M-34 0 Q0 -30 34 0 Q0 30 -34 0 Z', fill: '#fff', stroke: '#222', 'stroke-width': 6 }, corner);
     el('circle', { cx: 0, cy: 0, r: 11, fill: '#222' }, corner);
@@ -245,7 +248,8 @@
     const svg = $('inside-fx'), NS = 'http://www.w3.org/2000/svg';
     const STAR = [425, 185];                       // the guitarist's star head, in stage pixels
     let built = false, raf = 0, glow = null, beams = [], spots = [], tvGlow = null;
-    const EQ_COLS = 48, EQ_ROWS = 9, eqDots = [];
+    const FX = () => Tuning.live.effects;           // equalizer size, ring width, colors, ring curve
+    let eqDots = [], eqGroup = null;
     const el = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
     const starPts = (r) => Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; return `${(Math.cos(a) * rr).toFixed(1)},${(Math.sin(a) * rr).toFixed(1)}`; }).join(' ');
     function build() {
@@ -270,21 +274,29 @@
       el('stop', { offset: 0, 'stop-color': '#c9fbff', 'stop-opacity': .95 }, tg); el('stop', { offset: 1, 'stop-color': '#c9fbff', 'stop-opacity': 0 }, tg);
       tvGlow = el('ellipse', { cx: 966, cy: 566, rx: 330, ry: 260, fill: 'url(#fx-tv)', opacity: .25 });
       // a halftone-dot equalizer along the floor, following the music
-      const eq = el('g', {});
-      for (let c = 0; c < EQ_COLS; c++) {
-        const col = [], x = 25 + c * (1950 / (EQ_COLS - 1));
-        for (let r = 0; r < EQ_ROWS; r++) col.push(el('circle', { cx: x.toFixed(1), cy: 1105 - r * 17, r: 6.5 - r * .35, fill: c % 2 ? '#6ff3fb' : '#ff6fae', opacity: 0 }, eq));
+      eqGroup = el('g', {});
+      buildEq();
+    }
+    let n = 0;
+    // the floor equalizer: rebuilt whenever its number of columns, height, dot size or colors change
+    function buildEq() {
+      if (!eqGroup) return;
+      eqGroup.replaceChildren(); eqDots = [];
+      const { columns, rows, dotSize, colorA, colorB } = FX(), gap = dotSize * 2.6;
+      for (let c = 0; c < columns; c++) {
+        const col = [], x = 25 + c * (1950 / (columns - 1));
+        for (let r = 0; r < rows; r++) col.push(el('circle', { cx: x.toFixed(1), cy: (1105 - r * gap).toFixed(1), r: Math.max(1, dotSize * (1 - r / rows * .55)).toFixed(2), fill: c % 2 ? colorB : colorA, opacity: 0 }, eqGroup));
         eqDots.push(col);
       }
     }
-    let n = 0;
+    Tuning.onChange(g => { if (g === null || g === 'effects') buildEq(); });
     function ring(strong) {
-      const c = el('circle', { cx: STAR[0], cy: STAR[1], r: 100, fill: 'none', stroke: n++ % 2 ? '#6ff3fb' : '#ff6fae' }, $('fx-rings'));
+      const c = el('circle', { cx: STAR[0], cy: STAR[1], r: 100, fill: 'none', stroke: n++ % 2 ? FX().colorB : FX().colorA }, $('fx-rings'));
       c.style.transformBox = 'fill-box'; c.style.transformOrigin = 'center';
       const a = c.animate([
-        { transform: 'scale(.6)', opacity: strong ? .85 : .6, strokeWidth: 16 },
+        { transform: 'scale(.6)', opacity: strong ? .85 : .6, strokeWidth: FX().ringWidth },
         { transform: 'scale(6)', opacity: 0, strokeWidth: 3 }
-      ], { duration: reduce ? 1 : 2200, easing: 'cubic-bezier(.2,.6,.3,1)' });
+      ], { duration: reduce ? 1 : 2200, easing: Tuning.cssEase('effects') });
       a.onfinish = () => c.remove();
     }
     function start() {
@@ -312,12 +324,12 @@
           spots[i].setAttribute('opacity', (.32 + l * .3).toFixed(3));
         });
         // equalizer: each column lights as many dots as its band is loud (a gentle wave without audio)
-        const b = Sound.bands(EQ_COLS);
+        const cols = eqDots.length, rows = FX().rows, b = Sound.bands(cols);
         eqDots.forEach((col, c) => {
-          const v = b ? Math.min(1, b[Math.min(EQ_COLS - 1, Math.abs(c - EQ_COLS / 2) * 2 | 0)] * 1.35)
+          const v = b ? Math.min(1, b[Math.min(cols - 1, Math.abs(c - cols / 2) * 2 | 0)] * 1.35)
                       : .35 + .3 * Math.sin(T * 3 + c * .45) * Math.sin(T * 1.3 + c * .2);
-          const lit = v * EQ_ROWS;
-          col.forEach((d, r) => d.setAttribute('opacity', r < lit ? (.75 - r / EQ_ROWS * .45).toFixed(2) : '0'));
+          const lit = v * rows;
+          col.forEach((d, r) => d.setAttribute('opacity', r < lit ? (.75 - r / rows * .45).toFixed(2) : '0'));
         });
       };
       raf = requestAnimationFrame(tick);
@@ -362,8 +374,13 @@
     if (to === 'play') { step = 'play'; press.arm(); $('play').focus({ preventScroll: true }); return; }
     press.openNow();
     Sound.startMusic();
+    if (to === 'band') { step = 'band'; nextMember(0); return; }
+    if (to === 'inside') {
+      show('inside'); fx.start(); Sound.clearMusic(10); step = 'inside';
+      return;
+    }
     if (to === 'strum') { strum.start(); screen.classList.add('is-strum'); step = 'strum'; }
     if (to === 'tear') { tear.start(); screen.classList.add('is-strum', 'is-tearing'); step = 'tear'; }
   }
-  window.Sequence = { jump, restart };
+  window.Sequence = { jump, restart, strumChord: () => strum.strumChord() };
 })();

@@ -1,47 +1,84 @@
-// Floating, collapsible control panel for tuning the three interactive components.
-// Every change writes to Tuning.live, which the components read as they move, and redraws the
-// panel's own mini-previews. "Try it" jumps the prototype to that step so it can be felt directly.
+// Floating, collapsible control panel for tuning the prototype: a Motion tab for the three
+// interactive components and a Graphics tab for how the strings, paper tear, member glow, dialog
+// box and final-scene lights look. Every change writes to Tuning.live, which the components read
+// as they move or redraw, and redraws the panel's own mini-previews. "Try it" jumps the prototype
+// to that step so it can be felt directly.
 (() => {
   "use strict";
   const T = window.Tuning;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const STEPS = { key: 'play', strings: 'strum', paper: 'tear' };
-  const fmt = (v, f) => (f.step < 1 ? (+v).toFixed(1) : String(Math.round(v)));
+  const fmt = (v, f) => (f.type === 'color' ? v : f.type === 'select' ? v : f.step < 1 ? (+v).toFixed(1) : String(Math.round(v)));
+  const withUnit = (v, f) => (f.unit ? `${fmt(v, f)} ${f.unit}` : fmt(v, f));
+  const TABS = { motion: 'Motion', graphics: 'Graphics' };
 
   /* ---------- markup ---------- */
+  function field(g, k, f) {
+    const id = `tune-${g}-${k}`;
+    if (f.type === 'color') return `
+            <div class="tune-row tune-row-inline">
+              <label for="${id}">${f.label}</label>
+              <div class="tune-ctl">
+                <output for="${id}"></output>
+                <input type="color" id="${id}" data-group="${g}" data-key="${k}" title="${f.label}">
+              </div>
+            </div>`;
+    if (f.type === 'select') return `
+            <div class="tune-row">
+              <label for="${id}">${f.label}<span class="tune-range">${f.options.length} options</span></label>
+              <div class="tune-ctl">
+                <select id="${id}" data-group="${g}" data-key="${k}" title="${f.hint || ''}">
+                  ${f.options.map(o => `<option value="${o}">${o}</option>`).join('')}
+                </select>
+              </div>
+            </div>`;
+    return `
+            <div class="tune-row">
+              <label for="${id}">${f.label}<span class="tune-range">${f.min}–${f.max}${f.unit ? ' ' + f.unit : ''}</span></label>
+              <div class="tune-ctl">
+                <input type="range" id="${id}" data-group="${g}" data-key="${k}" min="${f.min}" max="${f.max}" step="${f.step}" title="${f.hint}">
+                <output for="${id}"></output>
+              </div>
+            </div>`;
+  }
+  const section = (g, sec) => `
+        <section class="tune-sec" data-group="${g}">
+          <div class="tune-sec-head">
+            <h3>${sec.title}</h3>
+            <div class="tune-sec-btns">
+              ${g === 'stringsLook' ? '<button type="button" class="tune-try" id="tune-hear">Hear chord</button>' : ''}
+              <button type="button" class="tune-try" data-step="${sec.step}">Try it</button>
+            </div>
+          </div>
+          ${g === 'glow'
+            ? `<div class="tune-preview tune-glow-box"><img class="tune-glow-demo" src="assets/images/band-member-0.svg" alt="" draggable="false"></div>`
+            : `<canvas class="tune-preview" data-group="${g}" aria-label="${sec.title} preview"></canvas>`}
+          ${g === 'stringsLook' ? '<p class="tune-notes" aria-live="polite"></p>' : ''}
+          ${Object.entries(sec.fields).map(([k, f]) => field(g, k, f)).join('')}
+          <div class="tune-row">
+            <span class="tune-label">Motion${sec.motion !== g ? `<span class="tune-range">shared with ${T.SCHEMA[sec.motion].title} motion</span>` : ''}</span>
+            <div class="tune-chips" role="radiogroup" aria-label="${sec.title} motion">
+              ${T.MOTIONS.map(m => `<button type="button" role="radio" class="tune-chip" data-group="${sec.motion}" data-motion="${m}">${m}</button>`).join('')}
+            </div>
+          </div>
+        </section>`;
   const panel = document.createElement('aside');
   panel.id = 'tune';
-  panel.setAttribute('aria-label', 'Motion controls');
+  panel.setAttribute('aria-label', 'Prototype controls');
   panel.innerHTML = `
     <div class="tune-head">
-      <h2>Motion controls</h2>
+      <h2>Controls</h2>
       <button type="button" class="tune-toggle" aria-expanded="true" aria-controls="tune-body" title="Collapse panel">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
     <div class="tune-body" id="tune-body">
-      ${Object.entries(T.SCHEMA).map(([g, sec]) => `
-        <section class="tune-sec" data-group="${g}">
-          <div class="tune-sec-head">
-            <h3>${sec.title}</h3>
-            <button type="button" class="tune-try" data-step="${STEPS[g]}">Try it</button>
-          </div>
-          <canvas class="tune-preview" data-group="${g}" aria-label="${sec.title} preview"></canvas>
-          ${Object.entries(sec.fields).map(([k, f]) => `
-            <div class="tune-row">
-              <label for="tune-${g}-${k}">${f.label}<span class="tune-range">${f.min}–${f.max} ${f.unit}</span></label>
-              <div class="tune-ctl">
-                <input type="range" id="tune-${g}-${k}" data-group="${g}" data-key="${k}" min="${f.min}" max="${f.max}" step="${f.step}" title="${f.hint}">
-                <output for="tune-${g}-${k}"></output>
-              </div>
-            </div>`).join('')}
-          <div class="tune-row">
-            <span class="tune-label">Motion</span>
-            <div class="tune-chips" role="radiogroup" aria-label="${sec.title} motion">
-              ${T.MOTIONS.map(m => `<button type="button" role="radio" class="tune-chip" data-group="${g}" data-motion="${m}">${m}</button>`).join('')}
-            </div>
-          </div>
-        </section>`).join('')}
+      <div class="tune-tabs" role="tablist" aria-label="Control groups">
+        ${Object.entries(TABS).map(([t, name]) => `<button type="button" role="tab" class="tune-tab" id="tune-tab-${t}" data-tab="${t}" aria-controls="tune-pane-${t}">${name}</button>`).join('')}
+      </div>
+      ${Object.keys(TABS).map(t => `
+      <div class="tune-pane" id="tune-pane-${t}" role="tabpanel" aria-labelledby="tune-tab-${t}" data-tab="${t}">
+        ${Object.entries(T.SCHEMA).filter(([, sec]) => sec.tab === t).map(([g, sec]) => section(g, sec)).join('')}
+      </div>`).join('')}
       <div class="tune-actions">
         <button type="button" class="tune-btn" id="tune-restore">Restore defaults</button>
         <button type="button" class="tune-btn is-primary" id="tune-copy">Copy settings</button>
@@ -52,40 +89,66 @@
   document.body.appendChild(panel);
   const body = panel.querySelector('.tune-body'), status = panel.querySelector('.tune-status');
 
-  /* ---------- collapse (remembered per viewer) ---------- */
+  /* ---------- collapse and tab (remembered per viewer) ---------- */
   const toggle = panel.querySelector('.tune-toggle');
   function setCollapsed(c) {
     panel.classList.toggle('is-collapsed', c);
     toggle.setAttribute('aria-expanded', String(!c));
-    toggle.title = c ? 'Open motion controls' : 'Collapse panel';
+    toggle.title = c ? 'Open controls' : 'Collapse panel';
     try { localStorage.setItem('tune-collapsed', c ? '1' : '0'); } catch (e) {}
   }
   toggle.addEventListener('click', () => setCollapsed(!panel.classList.contains('is-collapsed')));
   try { if (localStorage.getItem('tune-collapsed') === '1') setCollapsed(true); } catch (e) {}
+  let tab = 'motion';
+  function setTab(t) {
+    tab = t;
+    panel.querySelectorAll('.tune-tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('is-on', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
+    panel.querySelectorAll('.tune-pane').forEach(p => { p.hidden = p.dataset.tab !== t; });
+    try { localStorage.setItem('tune-tab', t); } catch (e) {}
+  }
+  panel.querySelectorAll('.tune-tab').forEach(b => {
+    b.addEventListener('click', () => setTab(b.dataset.tab));
+    b.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const ts = Object.keys(TABS), n = ts[(ts.indexOf(tab) + (e.key === 'ArrowRight' ? 1 : ts.length - 1)) % ts.length];
+      setTab(n); panel.querySelector(`#tune-tab-${n}`).focus();
+    });
+  });
+  try { const t = localStorage.getItem('tune-tab'); setTab(TABS[t] ? t : 'motion'); } catch (e) { setTab('motion'); }
 
   /* ---------- controls ⇄ Tuning.live ---------- */
-  const inputs = [...panel.querySelectorAll('input[type=range]')];
+  const inputs = [...panel.querySelectorAll('input[data-key], select[data-key]')];
   const chips = [...panel.querySelectorAll('.tune-chip')];
+  const notes = panel.querySelector('.tune-notes');
   function sync() {
     inputs.forEach(i => {
-      const f = T.SCHEMA[i.dataset.group].fields[i.dataset.key], v = T.live[i.dataset.group][i.dataset.key];
+      const g = i.dataset.group, f = T.SCHEMA[g].fields[i.dataset.key], v = T.live[g][i.dataset.key];
       i.value = v;
-      i.nextElementSibling.textContent = `${fmt(v, f)} ${f.unit}`;
-      i.style.setProperty('--p', ((v - f.min) / (f.max - f.min) * 100).toFixed(1) + '%');
-      i.classList.toggle('is-changed', v !== T.SAVED[i.dataset.group][i.dataset.key]);
+      const changed = v !== T.SAVED[g][i.dataset.key];
+      i.classList.toggle('is-changed', changed);
+      const out = i.parentElement.querySelector('output');
+      if (out) out.textContent = withUnit(v, f);
+      if (i.type === 'range') i.style.setProperty('--p', ((v - f.min) / (f.max - f.min) * 100).toFixed(1) + '%');
+      if (out) out.classList.toggle('is-changed', changed);
     });
     chips.forEach(c => {
       const on = T.live[c.dataset.group].motion === c.dataset.motion;
       c.classList.toggle('is-on', on); c.setAttribute('aria-checked', String(on));
     });
+    const L = T.live.stringsLook;
+    notes.textContent = T.CHORDS[L.chord].slice(0, L.count).map(hz => T.NOTE_NAMES[hz] || `${hz} Hz`).join(' · ');
   }
+  // restart every preview that shows this group (motion groups are shared between sections)
+  const restartFor = grp => Object.entries(T.SCHEMA).forEach(([g, sec]) => { if (g === grp || sec.motion === grp) restartPreview(g); });
   inputs.forEach(i => i.addEventListener('input', () => {
-    T.set(i.dataset.group, i.dataset.key, +i.value); sync(); restartPreview(i.dataset.group);
+    const f = T.SCHEMA[i.dataset.group].fields[i.dataset.key];
+    T.set(i.dataset.group, i.dataset.key, f.type ? i.value : +i.value); sync(); restartFor(i.dataset.group);
   }));
   chips.forEach(c => c.addEventListener('click', () => {
-    T.set(c.dataset.group, 'motion', c.dataset.motion); sync(); restartPreview(c.dataset.group);
+    T.set(c.dataset.group, 'motion', c.dataset.motion); sync(); restartFor(c.dataset.group);
   }));
-  panel.querySelectorAll('.tune-try').forEach(b => b.addEventListener('click', () => window.Sequence && Sequence.jump(b.dataset.step)));
+  panel.querySelectorAll('.tune-try[data-step]').forEach(b => b.addEventListener('click', () => window.Sequence && Sequence.jump(b.dataset.step)));
+  panel.querySelector('#tune-hear').addEventListener('click', () => window.Sequence && Sequence.strumChord());
   panel.querySelector('#tune-restore').addEventListener('click', () => {
     T.restore(); sync(); Object.keys(T.SCHEMA).forEach(restartPreview);
     say('Restored the saved defaults.');
@@ -94,10 +157,16 @@
   /* ---------- copy settings ---------- */
   function settingsText() {
     const lines = [];
-    for (const [g, sec] of Object.entries(T.SCHEMA)) {
-      lines.push(sec.title);
-      for (const [k, f] of Object.entries(sec.fields)) lines.push(`- ${f.label}: ${fmt(T.live[g][k], f)} ${f.unit}`);
-      lines.push(`- Motion: ${T.live[g].motion}`, '');
+    for (const t of Object.keys(TABS)) {
+      lines.push(`${TABS[t].toUpperCase()}`, '');
+      for (const [g, sec] of Object.entries(T.SCHEMA)) {
+        if (sec.tab !== t) continue;
+        lines.push(`${sec.title} (${g})`);
+        for (const [k, f] of Object.entries(sec.fields)) lines.push(`- ${f.label}: ${withUnit(T.live[g][k], f)}`);
+        // a shared motion curve is listed once, under the section that owns it
+        if (sec.motion === g) lines.push(`- Motion: ${T.live[g].motion}`);
+        lines.push('');
+      }
     }
     lines.push('Apply these values as the prototype’s saved defaults. Retain the panel code for later adjustments. Commit and push the changes.');
     return lines.join('\n');
@@ -116,10 +185,10 @@
   });
 
   /* ---------- mini previews ---------- */
-  const cvs = Object.fromEntries([...panel.querySelectorAll('.tune-preview')].map(c => [c.dataset.group, c]));
+  const cvs = Object.fromEntries([...panel.querySelectorAll('canvas.tune-preview')].map(c => [c.dataset.group, c]));
   const t0 = {};
   function restartPreview(g) { t0[g] = performance.now(); }
-  Object.keys(cvs).forEach(restartPreview);
+  Object.keys(T.SCHEMA).forEach(restartPreview);
   function fitCanvas(c) {
     const r = c.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
     const w = Math.round(r.width * d), h = Math.round(r.height * d);
@@ -230,11 +299,120 @@
     g.fillStyle = '#fff'; g.font = '11px Raleway, sans-serif'; g.fillText(`pull ${P.tearDistance} px to open`, 10, 16);
   }
 
+  /* graphics previews */
+  const mix = (a, b, u) => {
+    const p = parseInt(a.slice(1), 16), q = parseInt(b.slice(1), 16);
+    const c = s => Math.round(((p >> s) & 255) * (1 - u) + ((q >> s) & 255) * u);
+    return `rgb(${c(16)},${c(8)},${c(0)})`;
+  };
+
+  // strings: the drawn strings at their length, width and color, strummed over and over
+  function drawStringsLook(now) {
+    const [g, w, h] = fitCanvas(cvs.stringsLook), L = T.live.stringsLook, S = T.live.strings;
+    const notesHz = T.CHORDS[L.chord], cycle = Math.max(1600, S.decay * 600), t = (now - t0.stringsLook) % cycle;
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#3a2418'; g.fillRect(0, 10, w, h - 20); // the neck
+    const span = (w - 60) * L.length / 100, x0 = 44 + (w - 60 - span) / 2, x1 = x0 + span;
+    const base = [2.6, 2.2, 1.9, 1.5, 1.2, 1];
+    for (let j = 0; j < L.count; j++) {
+      const y = h - 18 - j * (h - 36) / 5, start = j * 40, age = (t - start) / 1000;
+      const env = age > 0 ? Math.exp(-age * 4.6 / S.decay) * S.amplitude / 100 : 0;
+      g.beginPath();
+      for (let k = 0; k <= 50; k++) {
+        const u = k / 50, x = x0 + (x1 - x0) * u;
+        const off = reduce ? 0 : 3.5 * env * Math.sin(Math.PI * u) * Math.sin(age * notesHz[j] / 6);
+        k ? g.lineTo(x, y + off) : g.moveTo(x, y + off);
+      }
+      g.strokeStyle = L.color; g.lineWidth = base[j] * L.width / 100; g.stroke();
+      g.fillStyle = col('--tune-dim'); g.font = '10px Raleway, sans-serif'; g.textAlign = 'left';
+      g.fillText(T.NOTE_NAMES[notesHz[j]] || '', 8, y + 3);
+    }
+  }
+
+  // paper tear: the torn rim and its loose fibres, swaying a little
+  const fibreSeed = Array.from({ length: 200 }, (_, i) => [Math.abs(Math.sin(i * 7.31) * 9301 % 1), Math.abs(Math.sin(i * 3.17) * 4973 % 1)]);
+  function drawPaperLook(now) {
+    const [g, w, h] = fitCanvas(cvs.paperLook), P = T.live.paperLook, E = T.ease('paper');
+    g.clearRect(0, 0, w, h);
+    const sky = g.createLinearGradient(0, 0, w, 0); sky.addColorStop(0, '#2cb3de'); sky.addColorStop(1, '#e8248c');
+    g.fillStyle = sky; g.fillRect(0, 0, w, h);
+    const edgeY = x => h * .55 + Math.sin(x * .09) * 4 + Math.sin(x * .23) * 2.5;
+    g.beginPath(); g.moveTo(0, h);
+    for (let x = 0; x <= w; x += 4) g.lineTo(x, edgeY(x));
+    g.lineTo(w, h); g.closePath();
+    g.fillStyle = col('--tune-paper'); g.fill();
+    g.beginPath(); for (let x = 0; x <= w; x += 4) x ? g.lineTo(x, edgeY(x) + 1.5) : g.moveTo(x, edgeY(x) + 1.5);
+    g.strokeStyle = T.rgba(P.paperColor, .95); g.lineWidth = 4; g.stroke();
+    // the panel shows the fibres at their real pixel size, a share of them across this strip
+    const n = Math.round(P.fibres * w / 990 * 2.5), sway = reduce ? 0 : Math.sin((now - t0.paperLook) / 700);
+    g.strokeStyle = P.fibreColor; g.lineWidth = P.fibreWidth; g.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+      const [a, b] = fibreSeed[i], x = a * w, y = edgeY(x), len = P.fibreLength * (.5 + b);
+      const bend = E(.5 + .5 * sway * (b - .5));
+      g.beginPath(); g.moveTo(x, y);
+      g.quadraticCurveTo(x + (b - .5) * len, y - len * .6, x + (bend - .5) * len * 1.2, y - len);
+      g.stroke();
+    }
+    g.lineCap = 'butt';
+    g.fillStyle = '#fff'; g.font = '11px Raleway, sans-serif'; g.textAlign = 'left';
+    g.fillText(`${P.fibres} fibres · ${P.fibreLength} px long`, 10, 16);
+  }
+
+  // dialog box: pops in with its motion curve, at its width, frame and colors, with its doodles
+  function drawDialog(now) {
+    const [g, w, h] = fitCanvas(cvs.dialog), D = T.live.dialog, E = T.ease('dialog');
+    const dur = 420, cycle = 2400, t = (now - t0.dialog) % cycle;
+    const s = reduce ? 1 : .6 + .4 * E(Math.min(1, t / dur));
+    g.clearRect(0, 0, w, h);
+    const bw = (w - 70) * D.width / 960, bh = 38, cx = w / 2, cy = h / 2 + 4, k = .45;
+    g.save(); g.translate(cx, cy); g.scale(s, s);
+    g.globalAlpha = Math.min(1, t / dur * 1.6);
+    g.strokeStyle = mix(D.cyan, '#ffffff', .45); g.lineWidth = D.border * k;
+    g.strokeRect(-bw / 2 + 6, -bh / 2 + 6, bw, bh);
+    g.fillStyle = '#fff'; g.fillRect(-bw / 2, -bh / 2, bw, bh);
+    g.strokeStyle = D.pink; g.lineWidth = D.border * k * 2; g.strokeRect(-bw / 2, -bh / 2, bw, bh);
+    g.fillStyle = D.pink; g.font = '14px Raleway, sans-serif'; g.textAlign = 'center';
+    g.fillText('Hi! I play the bass.', 0, 5);
+    // doodles, in the same order as on the real box: star, lightning, eyes, lines
+    g.lineWidth = 1.6; g.lineJoin = 'round';
+    const L = -bw / 2, R = bw / 2, Tp = -bh / 2, B = bh / 2;
+    const doodles = [
+      () => { g.strokeStyle = D.pink; g.beginPath(); for (let i = 0; i <= 10; i++) { const r = i % 2 ? 4 : 10, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(L - 4 + r * Math.cos(a), Tp - 8 + r * Math.sin(a)); } g.stroke(); },
+      () => { g.strokeStyle = mix(D.cyan, '#ffffff', .2); g.beginPath(); g.moveTo(R + 2, Tp - 18); g.lineTo(R - 5, Tp - 6); g.lineTo(R + 3, Tp - 6); g.lineTo(R - 4, Tp + 6); g.stroke(); },
+      () => { g.strokeStyle = D.pink; [0, 11].forEach(dx => { g.beginPath(); g.ellipse(R - 10 + dx, B + 10, 4.5, 3, 0, 0, Math.PI * 2); g.stroke(); }); },
+      () => { g.strokeStyle = mix(D.cyan, '#ffffff', .2); [0, 6, 12].forEach(dy => { g.beginPath(); g.moveTo(L - 14, B - 8 + dy); g.lineTo(L - 4, B - 12 + dy); g.stroke(); }); }
+    ];
+    doodles.slice(0, D.doodles).forEach(f => f());
+    g.restore();
+  }
+
+  // final-scene lights: the floor equalizer and a ring from the star, in their colors
+  function drawEffects(now) {
+    const [g, w, h] = fitCanvas(cvs.effects), F = T.live.effects, E = T.ease('effects');
+    const t = (now - t0.effects) / 1000;
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#1a0c1f'; g.fillRect(0, 0, w, h);
+    // one ring every 1.6 s, its growth shaped by the motion curve
+    const p = (t % 1.6) / 1.6, r = 6 + E(p) * w * .45;
+    g.strokeStyle = T.rgba(Math.floor(t / 1.6) % 2 ? F.colorB : F.colorA, (1 - p) * .8);
+    g.lineWidth = F.ringWidth * .25; g.beginPath(); g.arc(w / 2, 18, r, 0, Math.PI * 2); g.stroke();
+    // equalizer: the real column count across the strip, dots sized like the stage at panel scale
+    const cols = F.columns, gap = (w - 20) / cols, rowGap = (h - 30) / F.rows, rad = Math.min(gap * .45, rowGap * .45, F.dotSize * .35);
+    for (let c = 0; c < cols; c++) {
+      const lvl = reduce ? .5 : .5 + .5 * Math.sin(t * 3.1 + c * .45) * Math.sin(t * 1.3 + c * .17);
+      const lit = Math.max(1, Math.round(lvl * F.rows)), x = 10 + gap * (c + .5);
+      g.fillStyle = mix(F.colorA, F.colorB, c / Math.max(1, cols - 1));
+      for (let k = 0; k < lit; k++) { g.beginPath(); g.arc(x, h - 8 - k * rowGap, rad * (1 - k / F.rows * .4), 0, Math.PI * 2); g.fill(); }
+    }
+  }
+
   function loop(now) {
     requestAnimationFrame(loop);
     if (panel.classList.contains('is-collapsed') || document.hidden) return;
-    drawKey(now); drawStrings(now); drawPaper(now);
+    if (tab === 'motion') { drawKey(now); drawStrings(now); drawPaper(now); }
+    else { drawStringsLook(now); drawPaperLook(now); drawDialog(now); drawEffects(now); }
   }
+
   sync();
   requestAnimationFrame(loop);
 })();

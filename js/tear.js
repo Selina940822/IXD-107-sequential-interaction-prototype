@@ -116,8 +116,12 @@ window.Tear = (() => {
     const STEP = 40;                // image px of outward pull per increment
     // drag distance to complete, edge roughness, fold shadow and settle curve are live settings (js/tuning.js)
     const PP = () => Tuning.live.paper;
+    const PL = () => Tuning.live.paperLook;          // fibre count, length, width and colors
+    // the loose fibres: fixed positions around the edge, so changing the count adds or removes some
+    const LOOSE = (() => { const r = rng(91), out = []; for(let n=0;n<200;n++) out.push({ i: Math.floor(r()*NT), ang: (r()-.5)*1.1, len: .4 + r()*.6, bend: (r()-.5)*4 }); return out; })();
     const rough = () => PP().roughness / 100;
     const fib = i => FIB[i] * (.3 + .7 * rough());   // fibrous margin: thinner when smooth, never gone
+    Tuning.onChange(() => { dirty = true; });   // redraw when a setting changes
     let ripped = 0;                 // outward pull applied so far (image px)
     let relT = 1, relFold = .5, relDrag = {x:0, y:0};   // settle of the flap after letting go
     const FLAP_HW = .36;            // flap half-width (radians)
@@ -227,9 +231,23 @@ window.Tear = (() => {
       // 4. ragged white fibre along the torn edge
       ctx.beginPath(); holePath(ctx, rl);
       for(let i=NT-1;i>=0;i--){ const f = fib(i)*(.6 + .4*Math.min(1, meanG()*4 + .4)); const [x,y] = pt(i, rl[i] + f); i === NT-1 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); }
-      ctx.closePath(); ctx.fillStyle = 'rgba(238,238,238,.95)'; ctx.fill('evenodd');
+      ctx.closePath(); ctx.fillStyle = Tuning.rgba(PL().paperColor, .95); ctx.fill('evenodd');
       ctx.beginPath(); for(let i=0;i<=NT;i++){ const ii = i%NT, [x,y] = pt(ii, rl[ii] + fib(ii)*(.6 + .4*Math.min(1, meanG()*4 + .4))); i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }
       ctx.lineWidth = .8; ctx.strokeStyle = 'rgba(90,90,90,.6)'; ctx.stroke();
+
+      // loose fibres hanging from the torn edge into the hole
+      const nf = Math.min(LOOSE.length, PL().fibres), fl = PL().fibreLength, mg = Math.min(1, meanG()*4 + .4);
+      if(nf){
+        ctx.lineCap = 'round'; ctx.lineWidth = PL().fibreWidth; ctx.strokeStyle = Tuning.rgba(PL().fibreColor, .9);
+        ctx.beginPath();
+        for(let n=0;n<nf;n++){
+          const f = LOOSE[n], i = f.i, base = rl[i] + fib(i)*.5*mg;
+          const a = theta[i] + Math.PI + f.ang, L = fl * f.len * (.5 + .5*mg);   // pointing back into the hole
+          const [x, y] = pt(i, base);
+          ctx.moveTo(x, y); ctx.quadraticCurveTo(x + Math.cos(a)*L*.5 + f.bend, y + Math.sin(a)*L*.5 - f.bend, x + Math.cos(a)*L, y + Math.sin(a)*L);
+        }
+        ctx.stroke();
+      }
 
       // brightened edge where the hand is
       if(hoverA > .01 && !done){

@@ -34,12 +34,15 @@ window.Strum = (() => {
     const ST = () => Tuning.live.strings;
     const maxD = () => ST().maxPull;              // bend limit (image px)
     const pluckMin = () => maxD() * .42;          // bend needed for a full pluck
-    const FREQS = [82.41,110,146.83,196,246.94,329.63];
+    // number, length, width, color and chord of the strings are live settings (js/tuning.js)
+    const LOOK = () => Tuning.live.stringsLook;
+    const freq = i => Tuning.CHORDS[LOOK().chord][i];
+    let all = [];                                  // all six strings; `strings` holds the ones in play
     let strings = [], surface = null, ready = false, running = false, finished = false;
 
     function makeString(i, x1, y1, x2, y2, w){
       const dx = x2-x1, dy = y2-y1, len = Math.hypot(dx,dy);
-      return { i, x1, y1, x2, y2, w, len, ux:dx/len, uy:dy/len, nx:-dy/len, ny:dx/len,
+      return { i, x1, y1, x2, y2, w, len, base: [x1, y1, x2, y2], ux:dx/len, uy:dy/len, nx:-dy/len, ny:dx/len,
         y:new Float32Array(N), v:new Float32Array(N), steps: 9 + i*1.6, damp: 1, relAt: 0, g: 1,
         hover:0, held:false, grabT:.5, d:0, raw:0, moved:0 };
     }
@@ -47,10 +50,11 @@ window.Strum = (() => {
     const loaded = fetch('assets/images/guitar-closeup-strings.svg').then(r => r.text()).then(txt => {
       const doc = new DOMParser().parseFromString(txt, 'image/svg+xml');
       const paths = [...doc.querySelectorAll('[id^="string-"]')];
-      strings = paths.map((p,i) => {
+      all = paths.map((p,i) => {
         const n = (p.getAttribute('d').match(/-?\d+(\.\d+)?/g) || []).map(Number);
         return makeString(i, n[0], n[1], n[2], n[3], parseFloat(p.getAttribute('stroke-width')) || 2);
       });
+      applyLook();
       return fetch('assets/images/guitar-closeup.svg').then(r => r.text());
     }).then(text => {
       guitarSVG = text; ready = true; resize();
@@ -62,10 +66,27 @@ window.Strum = (() => {
       svgImage(guitarSVG, IW * S * c, IH * S * c).then(im => { if(canvas.width === w) surface = im; });
     }
 
+    // shorten the strings about their middles and keep the first `count` in play
+    function applyLook(){
+      const L = LOOK().length / 100;
+      for(const s of all){
+        const [a, b, c, d] = s.base, mx = (a + c) / 2, my = (b + d) / 2;
+        s.x1 = mx + (a - mx) * L; s.y1 = my + (b - my) * L; s.x2 = mx + (c - mx) * L; s.y2 = my + (d - my) * L;
+        s.len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+      }
+      strings = all.slice(0, LOOK().count);
+      for(const s of all.slice(LOOK().count)){ s.y.fill(0); s.v.fill(0); s.held = false; s.relAt = 0; }
+      if(held && !strings.includes(held)) held = null;
+    }
+    Tuning.onChange((g, k) => {
+      if(g === null || (g === 'stringsLook' && (k === 'length' || k === 'count'))) applyLook();
+      if(g === null || (g === 'stringsLook' && k === 'chord')) bufs.length = 0;   // re-tune
+    });
+
     /* ---------- slit ---------- */
     let slit = 0, slitTarget = 0, slitStart = 0;
     function slitCenter(){
-      const a = strings[2], b = strings[3];
+      const a = all[2], b = all[3];
       return { x:(a.x1+a.x2+b.x1+b.x2)/4, y:(a.y1+a.y2+b.y1+b.y2)/4, ang:Math.atan2(a.y2-a.y1, a.x2-a.x1) };
     }
 
@@ -175,7 +196,7 @@ window.Strum = (() => {
     }
     function pluckSound(i, amp){
       const a = Sound.audio(); if(!a) return;
-      if(!bufs[i]) bufs[i] = ksBuffer(a, FREQS[i]);
+      if(!bufs[i]) bufs[i] = ksBuffer(a, freq(i));
       const s = a.createBufferSource(), g = a.createGain(), lp = a.createBiquadFilter();
       s.buffer = bufs[i]; lp.type = 'lowpass'; lp.frequency.value = 1400 + amp*3600;
       const peak = Math.min(1.4, (.25 + amp*.55) * ST().amplitude / 100), dur = ST().decay, E = Tuning.ease('strings');
@@ -333,7 +354,7 @@ window.Strum = (() => {
     }
     function drawString(s, X, Y){
       const tension = Math.min(1, Math.abs(s.held ? s.d : 0)/maxD());
-      const lw = s.w * (1.25 - tension*.35) * 1.4;
+      const lw = s.w * (1.25 - tension*.35) * 1.4 * LOOK().width / 100;
       ctx.beginPath();
       for(let j=0;j<N;j++){ const t = j/(N-1), yj = s.y[j]*s.g, px = s.x1 + (s.x2-s.x1)*t + s.nx*yj, py = s.y1 + (s.y2-s.y1)*t + s.ny*yj; j ? ctx.lineTo(X(px),Y(py)) : ctx.moveTo(X(px),Y(py)); }
       return lw;
@@ -368,10 +389,11 @@ window.Strum = (() => {
       const order = strings.slice().sort((a,b) => (a.held||a===hovered) - (b.held||b===hovered));
       for(const s of order){
         const lw = drawString(s, X, Y), h = s.hover;
-        const g = Math.round(214 + 41*h);
+        // the chosen color, brightening toward white under the star
+        const n = parseInt(LOOK().color.slice(1), 16), mix = c => Math.round(c + (255 - c) * h);
         ctx.shadowColor = `rgba(255,${Math.round(150 + 90*h)},${Math.round(196 + 50*h)},${.55 + .4*h})`;
         ctx.shadowBlur = (7 + 10*h)*k;
-        ctx.lineWidth = lw*k*(1 + .25*h); ctx.strokeStyle = `rgb(${g},${Math.min(255, g+8)},${Math.min(255, g+8)})`; ctx.stroke();
+        ctx.lineWidth = lw*k*(1 + .25*h); ctx.strokeStyle = `rgb(${mix(n >> 16)},${mix(n >> 8 & 255)},${mix(n & 255)})`; ctx.stroke();
         ctx.shadowBlur = 0;
       }
     }
@@ -386,10 +408,12 @@ window.Strum = (() => {
     function reset(){
       stop();
       hovered = null; finished = false; canvas.style.cursor = STAR;
-      for(const s of strings){ s.y.fill(0); s.v.fill(0); s.hover = 0; s.held = false; }
+      for(const s of all){ s.y.fill(0); s.v.fill(0); s.hover = 0; s.held = false; }
       slit = 0; slitTarget = 0; tear = null;
     }
-    return { start, stop, reset, loaded };
+    // strum every string in play, low to high (the panel's "Hear chord")
+    function strumChord(){ Sound.audio(); strings.forEach((s, j) => setTimeout(() => pluckSound(s.i, .7), j * 45)); }
+    return { start, stop, reset, loaded, strumChord };
   }
 
   return { create };

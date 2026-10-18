@@ -13,13 +13,22 @@ A linear sequence inspired by the music performance in the game *A Chamber of St
 5. **Tear**: grab the torn edge and pull it outward to rip the screen open (from *Tear Open the Screen*). The performance space shows through.
 6. **Inside**: the camera dives through the screen and the music becomes clear. Spotlights, stage lights, a glowing TV, rings from the guitarist's star and a halftone-dot equalizer on the floor move with the music. After a short moment "You have reached the other side of the screen" appears with **Restart**, which returns everything to the start.
 
-### Motion control panel
-A floating, collapsible panel on the left tunes the three interactive components while you use them:
+### Control panel
+A floating, collapsible panel on the left tunes the prototype while you use it. It has two tabs.
+
+**Motion**
 - **Play key**: holding duration, sink distance, rebound duration
 - **Strings**: maximum pull, vibration amplitude, vibration decay time
 - **Paper screen**: drag distance to complete the tear, tear edge roughness, fold shadow
 
-Each has a motion curve (Linear, Ease In, Ease Out, Ease In-Out, Spring/Bounce), a live mini-preview and a **Try it** button that jumps to that step. **Restore defaults** returns to the saved values in `js/tuning.js`; **Copy settings** copies all current values with an instruction to save them as the new defaults.
+**Graphics**
+- **Strings**: number of strings, length, width, color, and the chord the six strings play (**Hear chord** strums it)
+- **Paper tear**: number, length, width and color of the loose fibres, torn edge color
+- **Band member glow**: glow layers, spread, outline width, color
+- **Dialog box**: number of doodles, box width, border thickness, frame and offset colors
+- **Final-scene lights**: equalizer columns and height, dot size, ring width, two colors
+
+Every section has a motion curve (Linear, Ease In, Ease Out, Ease In-Out, Spring/Bounce; the strings and paper share theirs between the two tabs), units and ranges on each control, a live preview and a **Try it** button that jumps to that step. **Restore defaults** returns to the saved values in `js/tuning.js`; **Copy settings** copies every component's current values with an instruction to save them as the new defaults.
 
 ### Files
 - `index.html`: the prototype (repository root, for GitHub Pages)
@@ -27,8 +36,9 @@ Each has a motion curve (Linear, Ease In, Ease Out, Ease In-Out, Spring/Bounce),
 - `js/sound.js`: shared audio, the muffled/clear music chain, the dialog click and the music analyser
 - `js/press.js`, `js/strum.js`, `js/tear.js`: the three study interactions adapted as steps
 - `js/main.js`: the sequence, transitions, dialogs, final-scene effects and restart
-- `js/tuning.js`: the saved motion settings and curves the components read live
-- `js/panel.js`: the motion control panel
+- `js/tuning.js`: the saved motion and graphics settings, chords and curves the components read live
+- `js/looks.js`: applies the glow and dialog box settings as CSS
+- `js/panel.js`: the control panel
 - `assets/images/`: all scene pictures as vector SVG, plus the cursors
 - `assets/audio/`: `Lilacs.mp3` and the dialog click
 - `tools/`: scripts that prepared the assets from the reference pictures in `tools/source/` (`cut-band.py`, `make-guitar.py`, `vectorize.py`, `extract-click.py`), and `build-artifact.py` for the Claude artifact preview
