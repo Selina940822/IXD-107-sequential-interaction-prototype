@@ -37,6 +37,28 @@
     return p.then(() => { from.classList.remove('is-active'); from.style.pointerEvents = ''; to.style.opacity = ''; });
   }
 
+  /* ---------- scene transitions (methods and timing are live settings: js/tuning.js) ---------- */
+  // animates `to` in (and `from` out, when given) with the chosen method; origin is 'x y' in px.
+  // Resolves with the entrance animation once it has finished.
+  function transition(group, from, to, origin = '50% 50%') {
+    const C = Tuning.live[group], easing = Tuning.cssEase(group), o = { duration: C.duration, easing };
+    const inOut = {
+      Fade: [[{ opacity: 0 }, { opacity: 1 }], [{ opacity: 1 }, { opacity: 0 }]],
+      Iris: [[{ clipPath: `circle(0% at ${origin})` }, { clipPath: `circle(150% at ${origin})` }], null],
+      Wipe: [[{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)' }], null],
+      Slide: [[{ transform: 'translateX(100%)' }, { transform: 'translateX(0)' }], [{ transform: 'translateX(0)' }, { transform: 'translateX(-100%)' }]],
+      Blur: [[{ opacity: 0, filter: 'blur(28px)' }, { opacity: 1, filter: 'blur(0)' }], [{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(28px)' }]],
+      Flash: [[{ opacity: 0, filter: 'brightness(4)' }, { opacity: 0, filter: 'brightness(4)', offset: .45 }, { opacity: 1, filter: 'brightness(4)', offset: .5 }, { opacity: 1, filter: 'brightness(1)' }],
+              [{ filter: 'brightness(1)' }, { filter: 'brightness(4)', offset: .5 }, { filter: 'brightness(4)' }]],
+      Zoom: [[{ opacity: 0, transform: 'scale(1.6)', transformOrigin: origin }, { opacity: 1, transform: 'scale(1)', transformOrigin: origin }],
+             [{ transform: 'scale(1)', transformOrigin: origin }, { transform: 'scale(3)', transformOrigin: origin }]]
+    }[C.method] || [[{ opacity: 0 }, { opacity: 1 }], null];
+    if (from && inOut[1]) animate(from, inOut[1], o);
+    const enter = to.animate(inOut[0], { fill: 'forwards', ...o, duration: reduce ? 1 : o.duration });
+    running.push(enter);
+    return enter.finished.catch(() => {}).then(() => enter);
+  }
+
   /* ---------- dialog ---------- */
   const dialog = $('dialog'), dialogText = dialog.querySelector('.dialog-text');
   // anchor: [x, y] in stage pixels; the dialog's lower-left corner sits there (a band member's upper right)
@@ -68,17 +90,20 @@
     // the room photo zooms about the point that maps it onto the close-up photo of the same TV;
     // the sharper close-up rides the same zoom (scaled down by the same factor) and fades in
     // part-way, so the view never ends on an enlarged, soft room photo
-    const ZOOM = 3.05, timing = { duration: 2600, easing: 'cubic-bezier(.55,0,.25,1)' };
-    scenes.tv.style.transformOrigin = '997.6px 586px';
+    const ZOOM = 3.05, C = Tuning.live.toTv, timing = { duration: C.duration, easing: Tuning.cssEase('toTv') };
     scenes.tv.style.pointerEvents = 'none';
     scenes.tv.classList.add('is-active');
-    animate(scenes.tv, [
-      { transform: `scale(${1 / ZOOM})`, opacity: 0, offset: 0 },
-      { opacity: 0, offset: .4 },
-      { opacity: 1, offset: .78 },
-      { transform: 'scale(1)', opacity: 1, offset: 1 }
-    ], timing);
-    await animate(img, [{ transform: 'scale(1)' }, { transform: `scale(${ZOOM})` }], timing);
+    if (C.method === 'Zoom') {
+      scenes.tv.style.transformOrigin = '997.6px 586px';
+      animate(scenes.tv, [
+        { transform: `scale(${1 / ZOOM})`, opacity: 0, offset: 0 },
+        { opacity: 0, offset: .4 },
+        { opacity: 1, offset: .78 },
+        { transform: 'scale(1)', opacity: 1, offset: 1 }
+      ], timing);
+      animate($('room-spots'), [{ transform: 'scale(1)' }, { transform: `scale(${ZOOM})` }], timing);
+      await animate(img, [{ transform: 'scale(1)' }, { transform: `scale(${ZOOM})` }], timing);
+    } else await transition('toTv', scenes.room, scenes.tv, '997.6px 586px');
     if (!alive(t)) return;
     scenes.room.classList.remove('is-active');
     scenes.tv.style.pointerEvents = '';
@@ -87,6 +112,7 @@
     $('play').focus({ preventScroll: true });
   });
   scenes.room.querySelector('.scene-bg').style.transformOrigin = '997.6px 586px';
+  $('room-spots').style.transformOrigin = '997.6px 586px';
 
   /* ---------- 2. play ---------- */
   const press = Press.create({
@@ -124,21 +150,26 @@
     // guitar while the strum view (the close-up with its strings) grows out of that same point,
     // so the camera lands directly on the strings
     const band = $('band'), strumView = $('strum');
-    const G = '560px 610px', Z = 4, zoom = { duration: 2400, easing: 'cubic-bezier(.6,0,.25,1)' };
+    const G = '560px 610px', Z = 4, C = Tuning.live.toStrings, zoom = { duration: C.duration, easing: Tuning.cssEase('toStrings') };
     strum.start();
     await strum.loaded;
     if (!alive(t)) return;
     band.style.transformOrigin = G; strumView.style.transformOrigin = G;
     strumView.style.visibility = 'visible';
-    animate(band, [{ transform: 'scale(1)' }, { transform: `scale(${Z})` }], zoom);
-    const grow = strumView.animate([
-      { transform: `scale(${1 / Z})`, opacity: 0, offset: 0 },
-      { opacity: 0, offset: .3 },
-      { opacity: 1, offset: .7 },
-      { transform: 'scale(1)', opacity: 1, offset: 1 }
-    ], { ...zoom, duration: reduce ? 1 : zoom.duration });
-    running.push(grow);
-    await grow.finished.catch(() => {});
+    let grow;
+    if (C.method === 'Zoom') {
+      animate(band, [{ transform: 'scale(1)' }, { transform: `scale(${Z})` }], zoom);
+      grow = strumView.animate([
+        { transform: `scale(${1 / Z})`, opacity: 0, offset: 0 },
+        { opacity: 0, offset: .3 },
+        { opacity: 1, offset: .7 },
+        { transform: 'scale(1)', opacity: 1, offset: 1 }
+      ], { ...zoom, duration: reduce ? 1 : zoom.duration });
+      running.push(grow);
+      await grow.finished.catch(() => {});
+    } else {
+      grow = await transition('toStrings', band, strumView, G);
+    }
     if (!alive(t)) return;
     grow.cancel();                                    // the canvas rests at its natural size; nothing to hold
     strumView.style.visibility = '';
@@ -163,18 +194,8 @@
       tear.stop();
       // through the hole: the paper lifts away, the music clears
       Sound.clearMusic(2400);
-      // the camera dives into the TV screen while the world inside comes up around you
-      const Z = 2.1, tx = 1000 - 890 * Z, ty = 563.5 - 565 * Z;
-      scenes.tv.style.transformOrigin = '0 0';
-      animate(scenes.tv, [{ transform: 'none' }, { transform: `translate(${tx}px, ${ty}px) scale(${Z})` }], { duration: 2000, easing: 'cubic-bezier(.6,0,.3,1)' });
-      scenes.inside.style.opacity = 0;
-      scenes.inside.classList.add('is-active');
-      fx.start();
-      animate(scenes.inside, [{ opacity: 0, transform: 'scale(1.1)', transformOrigin: '1000px 560px' }, { opacity: 1, transform: 'scale(1)', transformOrigin: '1000px 560px' }], { duration: 1500, delay: 700, easing: 'cubic-bezier(.3,.6,.3,1)' });
-      await wait(2200);
+      await enterInside(t);
       if (!alive(t)) return;
-      scenes.inside.style.opacity = '';
-      scenes.tv.classList.remove('is-active');
       step = 'inside';
       // 6. a short settle, then the ending
       await wait(5000);
@@ -186,6 +207,27 @@
       $('restart').focus({ preventScroll: true });
     }
   });
+
+  // the camera dives into the TV screen while the world inside comes up around you
+  async function enterInside(t) {
+    const C = Tuning.live.toInside, easing = Tuning.cssEase('toInside');
+    scenes.inside.style.opacity = 0;
+    scenes.inside.classList.add('is-active');
+    fx.start();
+    if (C.method === 'Zoom') {
+      const Z = 2.1, tx = 1000 - 890 * Z, ty = 563.5 - 565 * Z, d = C.duration;
+      scenes.tv.style.transformOrigin = '0 0';
+      animate(scenes.tv, [{ transform: 'none' }, { transform: `translate(${tx}px, ${ty}px) scale(${Z})` }], { duration: d * .91, easing });
+      animate(scenes.inside, [{ opacity: 0, transform: 'scale(1.1)', transformOrigin: '1000px 560px' }, { opacity: 1, transform: 'scale(1)', transformOrigin: '1000px 560px' }], { duration: d * .68, delay: d * .32, easing });
+      await wait(d);
+    } else {
+      scenes.inside.style.opacity = '';
+      await transition('toInside', scenes.tv, scenes.inside, '890px 565px');
+    }
+    if (!alive(t)) return;
+    scenes.inside.style.opacity = '';
+    scenes.tv.classList.remove('is-active');
+  }
 
   /* ---------- 6. the performance space comes alive ---------- */
   // spotlights sweep, stage lights wander the wall, the TV glows, a dot equalizer rises from the
@@ -237,14 +279,21 @@
       }
     }
     Tuning.onChange(g => { if (g === null || g === 'effects') buildEq(); });
-    function ring(strong) {
-      const c = el('circle', { cx: STAR[0], cy: STAR[1], r: 100, fill: 'none', stroke: n++ % 2 ? FX().colorB : FX().colorA }, $('fx-rings'));
+    // where the beat rings start (the guitarist's hands, or his star head), in stage pixels
+    const ORIGINS = { 'Strumming hand': [[290, 565]], 'Fretting hand': [[730, 410]], 'Both hands': [[290, 565], [730, 410]], 'Star head': [STAR] };
+    function ring(strong, at, size) {
+      const c = el('circle', { cx: at[0], cy: at[1], r: 50, fill: 'none', stroke: n++ % 2 ? FX().colorB : FX().colorA }, $('fx-rings'));
       c.style.transformBox = 'fill-box'; c.style.transformOrigin = 'center';
       const a = c.animate([
         { transform: 'scale(.6)', opacity: strong ? .85 : .6, strokeWidth: FX().ringWidth },
-        { transform: 'scale(6)', opacity: 0, strokeWidth: 3 }
+        { transform: `scale(${(12 * size).toFixed(2)})`, opacity: 0, strokeWidth: 3 }
       ], { duration: reduce ? 1 : 2200, easing: Tuning.cssEase('effects') });
       a.onfinish = () => c.remove();
+    }
+    // rings per beat ripple out one after another from each origin
+    function rings(strong) {
+      const F = FX(), at = ORIGINS[F.ringOrigin] || ORIGINS['Strumming hand'];
+      for (let k = 0; k < F.ringsPerBeat; k++) setTimeout(() => at.forEach(p => ring(strong, p, F.ringSize / 100 * (1 - k * .12))), k * 140);
     }
     function start() {
       if (!built) build();
@@ -256,7 +305,7 @@
         let beat = false, l;
         if (lv === null) { l = .3 + .25 * Math.max(0, Math.sin(now / 833 * Math.PI * 2)); beat = now - last > 833; }
         else { l = lv; avg = avg * .96 + lv * .04; beat = lv > avg * 1.18 && lv > .15 && now - last > 330; }
-        if (beat) { last = now; pulse = 1; Notes.pulse(); if (!reduce) ring(l > avg * 1.35); }
+        if (beat) { last = now; pulse = 1; Notes.pulse(); if (!reduce) rings(l > avg * 1.35); }
         pulse *= .9;
         glow.setAttribute('opacity', (.16 + l * .3 + pulse * .3).toFixed(3));
         glow.setAttribute('r', (210 + pulse * 50).toFixed(1));
@@ -309,12 +358,22 @@
     resetAll();
     tvHotspot.hidden = false;
     show('room');
-    animate(scenes.room, [{ opacity: 0 }, { opacity: 1 }], { duration: 900, easing: 'ease' });
+    transition('toRestart', null, scenes.room, '997.6px 586px');
     tvHotspot.focus({ preventScroll: true });
   }
 
   // jump straight to one interactive step (used by the control panel's "Try it" buttons)
   function jump(to) {
+    // the transitions: set up the scene before the change, then trigger it
+    if (to === 'room') { resetAll(); tvHotspot.hidden = false; show('room'); return; }
+    if (to === 't-toTv') { jump('room'); Sound.audio(); setTimeout(() => tvHotspot.click(), 300); return; }
+    if (to === 't-toStrings') { jump('band'); hush(); nextMember(3); setTimeout(() => members[3].click(), 300); return; }
+    if (to === 't-toInside') {
+      jump('tear'); tear.stop(); step = 'entering'; const t = token;
+      enterInside(t).then(() => { if (alive(t)) step = 'inside'; });
+      return;
+    }
+    if (to === 't-toRestart') { jump('inside'); setTimeout(restart, 600); return; }
     resetAll();
     Sound.audio();
     tvHotspot.hidden = true;

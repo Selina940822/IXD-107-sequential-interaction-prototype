@@ -14,7 +14,7 @@ A linear sequence inspired by the music performance in the game *A Chamber of St
 6. **Inside**: the camera dives through the screen and the music becomes clear. Spotlights, stage lights, a glowing TV, rings from the guitarist's star and a halftone-dot equalizer on the floor move with the music. After a short moment "You have reached the other side of the screen" appears with **Restart**, which returns everything to the start.
 
 ### Control panel
-A floating, collapsible panel on the left tunes the prototype while you use it. It has two tabs.
+A floating, collapsible panel on the left tunes the prototype while you use it. It has three tabs.
 
 **Motion**
 - **Play key**: holding duration, sink distance, rebound duration
@@ -22,12 +22,16 @@ A floating, collapsible panel on the left tunes the prototype while you use it. 
 - **Paper screen**: drag distance to complete the tear, tear edge roughness, fold shadow
 
 **Graphics**
-- **Strings**: number of strings, length, width, color, and the chord the six strings play (**Hear chord** strums it)
+- **Room spotlights**: beams over the TV in the first room (how many, beam width, sweep angle, sweep time, brightness, two colors)
+- **Strings**: number of strings, length, width, color style (single, gradient, rainbow), colors, glow color, and the chord the six strings play from 20 chords (**Hear chord** strums it)
 - **Paper tear**: number, length, width and color of the loose fibres, torn edge color
 - **Band member glow**: glow layers, spread, outline width, color
 - **Dialog box**: box width, border thickness, frame and offset colors, and the eyes on its corners (how many, shape, width, height, pupil size, colors)
-- **Final-scene lights**: equalizer columns and height, dot size, ring width, two colors
-- **Orbiting notes**: music notes circling the guitarist and the band on the small TV in the final scene (how many, note shape, size, orbit width and height, time per orbit, glow, two colors); they pop on each beat
+- **Final-scene lights**: equalizer columns and height, dot size, the beat rings' layout (from the guitarist's strumming hand, fretting hand, both hands, or his star head), rings per beat, ring size and width, two colors
+- **Character effects**: shapes moving around the guitarist and the band on the small TV in the final scene: music notes, sparkles, hearts, stars, bubbles, petals or a mix, that orbit, rise, burst outward or twinkle (amount, note shape, size, spread, cycle time, glow, two colors); they pop on each beat
+
+**Transitions**
+- **Room → TV**, **Guitarist → strings**, **Tear → world inside**, **Restart → room**: the transition (Zoom, Fade, Iris, Wipe, Slide, Blur, Flash) and its duration
 
 Every section has a motion curve (Linear, Ease In, Ease Out, Ease In-Out, Spring/Bounce; the strings and paper share theirs between the two tabs), units and ranges on each control, a live preview and a **Try it** button that jumps to that step. **Restore defaults** returns to the saved values in `js/tuning.js`; **Copy settings** copies every component's current values with an instruction to save them as the new defaults.
 
@@ -39,7 +43,8 @@ Every section has a motion curve (Linear, Ease In, Ease Out, Ease In-Out, Spring
 - `js/main.js`: the sequence, transitions, dialogs, final-scene effects and restart
 - `js/tuning.js`: the saved motion and graphics settings, chords and curves the components read live
 - `js/looks.js`: applies the glow and dialog box settings and draws the dialog's eyes
-- `js/notes.js`: the music notes orbiting the characters in the final scene
+- `js/notes.js`: the effects around the characters in the final scene
+- `js/spots.js`: the spotlights in the first room
 - `js/panel.js`: the control panel
 - `assets/images/`: all scene pictures as vector SVG, plus the cursors
 - `assets/audio/`: `Lilacs.mp3` and the dialog click

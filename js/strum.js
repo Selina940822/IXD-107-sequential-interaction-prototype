@@ -389,9 +389,10 @@ window.Strum = (() => {
       const order = strings.slice().sort((a,b) => (a.held||a===hovered) - (b.held||b===hovered));
       for(const s of order){
         const lw = drawString(s, X, Y), h = s.hover;
-        // the chosen color, brightening toward white under the star
-        const n = parseInt(LOOK().color.slice(1), 16), mix = c => Math.round(c + (255 - c) * h);
-        ctx.shadowColor = `rgba(255,${Math.round(150 + 90*h)},${Math.round(196 + 50*h)},${.55 + .4*h})`;
+        // the string's color (single, gradient or rainbow), brightening toward white under the star
+        const n = parseInt(Tuning.stringColor(s.i).slice(1), 16), mix = c => Math.round(c + (255 - c) * h);
+        const gc = parseInt(LOOK().glowColor.slice(1), 16), gmix = c => Math.round(c + (255 - c) * h * .6);
+        ctx.shadowColor = `rgba(${gmix(gc >> 16)},${gmix(gc >> 8 & 255)},${gmix(gc & 255)},${.55 + .4*h})`;
         ctx.shadowBlur = (7 + 10*h)*k;
         ctx.lineWidth = lw*k*(1 + .25*h); ctx.strokeStyle = `rgb(${mix(n >> 16)},${mix(n >> 8 & 255)},${mix(n & 255)})`; ctx.stroke();
         ctx.shadowBlur = 0;

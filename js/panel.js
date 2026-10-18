@@ -9,7 +9,7 @@
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fmt = (v, f) => (f.type === 'color' ? v : f.type === 'select' ? v : f.step < 1 ? (+v).toFixed(1) : String(Math.round(v)));
   const withUnit = (v, f) => (f.unit ? `${fmt(v, f)} ${f.unit}` : fmt(v, f));
-  const TABS = { motion: 'Motion', graphics: 'Graphics' };
+  const TABS = { motion: 'Motion', graphics: 'Graphics', transitions: 'Transitions' };
 
   /* ---------- markup ---------- */
   function field(g, k, f) {
@@ -136,7 +136,7 @@
       c.classList.toggle('is-on', on); c.setAttribute('aria-checked', String(on));
     });
     const L = T.live.stringsLook;
-    notes.textContent = T.CHORDS[L.chord].slice(0, L.count).map(hz => T.NOTE_NAMES[hz] || `${hz} Hz`).join(' · ');
+    notes.textContent = T.NOTES[L.chord].slice(0, L.count).join(' · ');
   }
   // restart every preview that shows this group (motion groups are shared between sections)
   const restartFor = grp => Object.entries(T.SCHEMA).forEach(([g, sec]) => { if (g === grp || sec.motion === grp) restartPreview(g); });
@@ -323,9 +323,9 @@
         const off = reduce ? 0 : 3.5 * env * Math.sin(Math.PI * u) * Math.sin(age * notesHz[j] / 6);
         k ? g.lineTo(x, y + off) : g.moveTo(x, y + off);
       }
-      g.strokeStyle = L.color; g.lineWidth = base[j] * L.width / 100; g.stroke();
+      g.strokeStyle = T.stringColor(j); g.lineWidth = base[j] * L.width / 100; g.stroke();
       g.fillStyle = col('--tune-dim'); g.font = '10px Raleway, sans-serif'; g.textAlign = 'left';
-      g.fillText(T.NOTE_NAMES[notesHz[j]] || '', 8, y + 3);
+      g.fillText(T.NOTES[L.chord][j], 8, y + 3);
     }
   }
 
@@ -386,7 +386,55 @@
     g.restore();
   }
 
-  // orbiting notes: a simple figure with its notes circling, at the guitarist's proportions
+  // room spotlights: the beams sweeping over a small TV
+  function drawSpots(now) {
+    const [g, w, h] = fitCanvas(cvs.spots), S = T.live.spots, t = (now - t0.spots) / 1000;
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#1c0d1e'; g.fillRect(0, 0, w, h);
+    const k = w / 2000, tvx = 997 * k, tvy = h * .62;
+    g.fillStyle = '#4a3a3c'; g.fillRect(tvx - 22, tvy - 16, 44, 32); g.fillStyle = '#a7c9cc'; g.fillRect(tvx - 17, tvy - 12, 30, 22);
+    g.save(); g.globalCompositeOperation = 'screen'; g.globalAlpha = S.brightness / 100; g.filter = 'blur(3px)';
+    for (let i = 0; i < S.count; i++) {
+      const [x] = Spots.source(i, S.count), a = Spots.angle(i, S.count, t) * Math.PI / 180, c = i % 2 ? S.colorB : S.colorA;
+      g.save(); g.translate(x * k, -4); g.rotate(a);
+      const gr = g.createLinearGradient(0, 0, 0, h * 1.2); gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(-3, 0); g.lineTo(3, 0); g.lineTo(S.width * k * 1.6, h * 1.2); g.lineTo(-S.width * k * 1.6, h * 1.2); g.closePath(); g.fill();
+      g.restore();
+    }
+    g.restore();
+    g.fillStyle = col('--tune-dim'); g.font = '11px Raleway, sans-serif'; g.textAlign = 'left';
+    g.fillText(`${S.count} beam${S.count === 1 ? '' : 's'} · ±${S.sweep}°`, 10, h - 10);
+  }
+
+  // transitions: scene A changes into scene B with the chosen method, curve and duration
+  function drawTransition(id, now) {
+    const [g, w, h] = fitCanvas(cvs[id]), C = T.live[id], E = T.ease(id);
+    const hold = 600, cyc = C.duration + hold * 2, tt = (now - t0[id]) % cyc;
+    const p = tt < hold ? 0 : tt > hold + C.duration ? 1 : E((tt - hold) / C.duration);
+    const scene = (label, c1, c2) => { const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, c1); gr.addColorStop(1, c2); g.fillStyle = gr; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.font = '15px Raleway, sans-serif'; g.textAlign = 'center'; g.fillText(label, w / 2, h / 2 + 5); };
+    const [from, to] = { toTv: ['Room', 'TV'], toStrings: ['Band', 'Strings'], toInside: ['Tear', 'World inside'], toRestart: ['Ending', 'Room'] }[id];
+    const A = () => scene(from, '#3a1d3c', '#7a3a6c'), B = () => scene(to, '#1f8fb0', '#e8248c');
+    const ox = w / 2, oy = h / 2, q = Math.max(0, Math.min(1, p));
+    g.save(); g.clearRect(0, 0, w, h); g.textAlign = 'center';
+    switch (C.method) {
+      case 'Fade': A(); g.globalAlpha = q; B(); break;
+      case 'Iris': A(); g.beginPath(); g.arc(ox, oy, Math.max(0, p) * Math.hypot(w, h) * .6, 0, Math.PI * 2); g.clip(); B(); break;
+      case 'Wipe': A(); g.beginPath(); g.rect(0, 0, w * Math.max(0, p), h); g.clip(); B(); break;
+      case 'Slide': g.save(); g.translate(-w * p, 0); A(); g.restore(); g.translate(w * (1 - p), 0); B(); break;
+      case 'Blur': g.filter = `blur(${(q * 10).toFixed(1)}px)`; g.globalAlpha = 1 - q; A(); g.filter = `blur(${((1 - q) * 10).toFixed(1)}px)`; g.globalAlpha = q; B(); break;
+      case 'Flash': { const f = 1 - Math.abs(q - .5) * 2; (q < .5 ? A : B)(); g.globalAlpha = f; g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); break; }
+      default: // Zoom
+        g.save(); g.translate(ox, oy); g.scale(1 + 2 * p, 1 + 2 * p); g.translate(-ox, -oy); A(); g.restore();
+        g.globalAlpha = Math.max(0, Math.min(1, (p - .35) / .45)); g.translate(ox, oy); g.scale(.4 + .6 * p, .4 + .6 * p); g.translate(-ox, -oy); B();
+    }
+    g.restore();
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(10, h - 12, w - 20, 4);
+    g.fillStyle = col('--tune-cyan'); g.fillRect(10, h - 12, (w - 20) * Math.min(1, Math.max(0, (tt - hold) / C.duration)), 4);
+    g.fillStyle = '#fff'; g.font = '11px Raleway, sans-serif'; g.textAlign = 'left';
+    g.fillText(`${C.method} · ${C.duration} ms`, 10, 16);
+  }
+
+  // character effects: a simple figure with its shapes moving around it, at the guitarist's proportions
   function drawNotes(now) {
     const [g, w, h] = fitCanvas(cvs.notes), S = T.live.notes, t = (now - t0.notes) / 1000;
     g.clearRect(0, 0, w, h);
@@ -399,16 +447,18 @@
     g.fill();
     if (Math.floor(t / .833) !== Math.floor((t - 1 / 60) / .833)) restartPop = now;
     const pop = Math.exp(-(now - (restartPop || 0)) / 150);
-    const items = Array.from({ length: S.count }, (_, i) => ({ i, p: Notes.place(i, S.count, t, 1) })).sort((a, b) => a.p.depth - b.p.depth);
+    const rx = cw * S.orbitWidth / 200, ry = cw * S.orbitHeight / 200;
+    const items = Array.from({ length: S.count }, (_, i) => ({ i, p: Notes.place(i, S.count, t, 1, rx, ry) })).sort((a, b) => a.p.depth - b.p.depth);
+    if (!S.count) { g.fillStyle = col('--tune-dim'); g.font = '11px Raleway, sans-serif'; g.textAlign = 'left'; g.fillText('Amount is 0: no effect', 10, h - 10); }
     g.save();
     if (S.glow) { g.shadowColor = T.rgba(S.colorA, .9); g.shadowBlur = S.glow * .8; }
     items.forEach(({ i, p }) => {
-      const s = S.size * k * 1.4 * (.7 + .3 * p.depth) * (1 + .35 * pop);
+      const s = S.size * k * 1.4 * p.scale * (1 + .35 * pop);
       g.save();
-      g.translate(cx + cw * S.orbitWidth / 200 * p.x, cy + cw * S.orbitHeight / 200 * p.y);
+      g.translate(cx + p.x, cy + p.y);
       g.rotate((reduce ? 0 : 14 * Math.sin(t * 2 + i)) * Math.PI / 180); g.scale(s, s);
-      g.globalAlpha = .45 + .55 * p.depth; g.fillStyle = i % 2 ? S.colorB : S.colorA;
-      g.fill(new Path2D(Notes.path(S.shape, i)));
+      g.globalAlpha = p.alpha; g.fillStyle = i % 2 ? S.colorB : S.colorA;
+      g.fill(new Path2D(Notes.path(S.shape, i, S.effect)), 'evenodd');
       g.restore();
     });
     g.restore();
@@ -421,10 +471,14 @@
     const t = (now - t0.effects) / 1000;
     g.clearRect(0, 0, w, h);
     g.fillStyle = '#1a0c1f'; g.fillRect(0, 0, w, h);
-    // one ring every 1.6 s, its growth shaped by the motion curve
-    const p = (t % 1.6) / 1.6, r = 6 + E(p) * w * .45;
-    g.strokeStyle = T.rgba(Math.floor(t / 1.6) % 2 ? F.colorB : F.colorA, (1 - p) * .8);
-    g.lineWidth = F.ringWidth * .25; g.beginPath(); g.arc(w / 2, 18, r, 0, Math.PI * 2); g.stroke();
+    // a beat every 1.6 s: rings per beat ripple from each origin (hands at the guitarist's spots)
+    const at = { 'Strumming hand': [[.3, .55]], 'Fretting hand': [[.7, .35]], 'Both hands': [[.3, .55], [.7, .35]], 'Star head': [[.5, .15]] }[F.ringOrigin];
+    for (let k = 0; k < F.ringsPerBeat; k++) {
+      const p = ((t - k * .14) % 1.6 + 1.6) % 1.6 / 1.6, r = 4 + E(p) * w * .3 * F.ringSize / 100 * (1 - k * .12);
+      g.strokeStyle = T.rgba(Math.floor(t / 1.6) % 2 ? F.colorB : F.colorA, (1 - p) * .8);
+      g.lineWidth = F.ringWidth * .2;
+      at.forEach(([x, y]) => { g.beginPath(); g.arc(w * x, h * y, r, 0, Math.PI * 2); g.stroke(); });
+    }
     // equalizer: the real column count across the strip, dots sized like the stage at panel scale
     const cols = F.columns, gap = (w - 20) / cols, rowGap = (h - 30) / F.rows, rad = Math.min(gap * .45, rowGap * .45, F.dotSize * .35);
     for (let c = 0; c < cols; c++) {
@@ -439,7 +493,8 @@
     requestAnimationFrame(loop);
     if (panel.classList.contains('is-collapsed') || document.hidden) return;
     if (tab === 'motion') { drawKey(now); drawStrings(now); drawPaper(now); }
-    else { drawStringsLook(now); drawPaperLook(now); drawDialog(now); drawEffects(now); drawNotes(now); }
+    else if (tab === 'graphics') { drawSpots(now); drawStringsLook(now); drawPaperLook(now); drawDialog(now); drawEffects(now); drawNotes(now); }
+    else ['toTv', 'toStrings', 'toInside', 'toRestart'].forEach(id => drawTransition(id, now));
   }
 
   sync();

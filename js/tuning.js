@@ -10,25 +10,49 @@ window.Tuning = (() => {
     strings: { maxPull: 39, amplitude: 70, decay: 4.7, motion: 'Linear' },
     paper: { tearDistance: 1000, roughness: 60, shadow: 30, motion: 'Ease In' },
     // graphics
-    stringsLook: { count: 6, length: 100, width: 60, color: '#d6dede', chord: 'E minor' },
+    spots: { count: 3, width: 360, sweep: 18, lap: 7, brightness: 45, colorA: '#ff7ac0', colorB: '#7ff6ff', motion: 'Ease In-Out' },
+    stringsLook: { count: 6, length: 100, width: 60, colorMode: 'Single', color: '#d6dede', colorB: '#f0478c', glowColor: '#ff96c4', chord: 'E minor' },
     paperLook: { fibres: 35, fibreLength: 6, fibreWidth: 1, paperColor: '#eeeeee', fibreColor: '#fafafa' },
     glow: { layers: 3, spread: 11, width: 1.5, color: '#fbffcc', motion: 'Ease In-Out' },
     dialog: { width: 480, border: 3, pink: '#f08cb3', cyan: '#5fb9c0', eyes: 2, eyeShape: 'Almond', eyeWidth: 68, eyeHeight: 30, pupil: 25, eyeColor: '#ffffff', pupilColor: '#222222', motion: 'Spring/Bounce' },
-    effects: { columns: 80, rows: 9, dotSize: 7, ringWidth: 15, colorA: '#ff6fae', colorB: '#6ff3fb', motion: 'Ease Out' },
-    notes: { count: 0, shape: 'Mixed', size: 51, orbitWidth: 230, orbitHeight: 20, lap: 6, glow: 5, colorA: '#ffffff', colorB: '#ff6fae', motion: 'Linear' }
+    effects: { columns: 80, rows: 9, dotSize: 7, ringOrigin: 'Strumming hand', ringsPerBeat: 1, ringSize: 100, ringWidth: 15, colorA: '#ff6fae', colorB: '#6ff3fb', motion: 'Ease Out' },
+    notes: { effect: 'Orbiting notes', pattern: 'Orbit', count: 0, shape: 'Mixed', size: 51, orbitWidth: 230, orbitHeight: 20, lap: 6, glow: 5, colorA: '#ffffff', colorB: '#ff6fae', motion: 'Linear' },
+    // transitions between scenes
+    toTv: { method: 'Zoom', duration: 2600, motion: 'Ease In-Out' },
+    toStrings: { method: 'Zoom', duration: 2400, motion: 'Ease In-Out' },
+    toInside: { method: 'Zoom', duration: 2200, motion: 'Ease In-Out' },
+    toRestart: { method: 'Fade', duration: 900, motion: 'Ease Out' }
   };
 
-  // the six notes of each chord, low E string first (Hz)
-  const CHORDS = {
-    'Open strings': [82.41, 110, 146.83, 196, 246.94, 329.63],
-    'E major': [82.41, 123.47, 164.81, 207.65, 246.94, 329.63],
-    'E minor': [82.41, 123.47, 164.81, 196, 246.94, 329.63],
-    'A minor': [82.41, 110, 164.81, 220, 261.63, 329.63],
-    'C major': [82.41, 130.81, 164.81, 196, 261.63, 329.63],
-    'G major': [98, 123.47, 146.83, 196, 246.94, 392],
-    'D major': [73.42, 110, 146.83, 220, 293.66, 369.99]
+  // the six notes of each chord, low E string first
+  const CHORD_NOTES = {
+    'Open strings': 'E2 A2 D3 G3 B3 E4',
+    'E major': 'E2 B2 E3 G#3 B3 E4',
+    'E minor': 'E2 B2 E3 G3 B3 E4',
+    'E7': 'E2 B2 D3 G#3 B3 E4',
+    'Em7': 'E2 B2 D3 G3 B3 E4',
+    'A major': 'E2 A2 E3 A3 C#4 E4',
+    'A minor': 'E2 A2 E3 A3 C4 E4',
+    'A7': 'E2 A2 E3 G3 C#4 E4',
+    'Asus2': 'E2 A2 E3 A3 B3 E4',
+    'C major': 'E2 C3 E3 G3 C4 E4',
+    'C7': 'E2 C3 E3 A#3 C4 E4',
+    'Cadd9': 'E2 C3 E3 G3 D4 E4',
+    'D major': 'D2 A2 D3 A3 D4 F#4',
+    'D minor': 'D2 A2 D3 A3 D4 F4',
+    'Dsus4': 'D2 A2 D3 A3 D4 G4',
+    'F major': 'F2 C3 F3 A3 C4 F4',
+    'G major': 'G2 B2 D3 G3 B3 G4',
+    'G7': 'G2 B2 D3 G3 B3 F4',
+    'B minor': 'F#2 B2 F#3 B3 D4 F#4',
+    'E5 power chord': 'E2 B2 E3 B3 E4 B4'
   };
-  const NOTE_NAMES = { 73.42: 'D2', 82.41: 'E2', 98: 'G2', 110: 'A2', 123.47: 'B2', 130.81: 'C3', 146.83: 'D3', 164.81: 'E3', 196: 'G3', 207.65: 'G♯3', 220: 'A3', 246.94: 'B3', 261.63: 'C4', 293.66: 'D4', 329.63: 'E4', 369.99: 'F♯4', 392: 'G4' };
+  const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const hz = n => { const m = /^([A-G])(#?)(\d)$/.exec(n); return +(440 * Math.pow(2, (12 * (+m[3] + 1) + SEMI[m[1]] + (m[2] ? 1 : 0) - 69) / 12)).toFixed(2); };
+  const NOTES = Object.fromEntries(Object.entries(CHORD_NOTES).map(([k, v]) => [k, v.split(' ').map(x => x.replace('#', '♯'))]));
+  const CHORDS = Object.fromEntries(Object.entries(CHORD_NOTES).map(([k, v]) => [k, v.split(' ').map(hz)]));
+
+  const TRANSITIONS = ['Zoom', 'Fade', 'Iris', 'Wipe', 'Slide', 'Blur', 'Flash'];
 
   // what each value means, for the panel and the copied settings, in panel order;
   // `motion` names the group whose motion curve the section shows (shared where it repeats)
@@ -57,13 +81,28 @@ window.Tuning = (() => {
         shadow: { label: 'Fold shadow', unit: '%', min: 0, max: 100, step: 5, hint: 'darkness of the shadow under the curled flap' }
       }
     },
+    spots: {
+      title: 'Room spotlights', tab: 'graphics', motion: 'spots', step: 'room',
+      fields: {
+        count: { label: 'Number of spotlights', unit: '', min: 0, max: 6, step: 1, hint: 'beams shining down on the TV in the first room' },
+        width: { label: 'Beam width', unit: 'px', min: 100, max: 800, step: 10, hint: 'width of each beam where it reaches the floor' },
+        sweep: { label: 'Sweep angle', unit: '°', min: 0, max: 45, step: 1, hint: 'how far each beam swings to either side' },
+        lap: { label: 'Sweep time', unit: 's', min: 2, max: 20, step: .5, hint: 'time for one swing across and back' },
+        brightness: { label: 'Brightness', unit: '%', min: 10, max: 100, step: 5, hint: 'strength of the light' },
+        colorA: { label: 'Color A', type: 'color' },
+        colorB: { label: 'Color B', type: 'color' }
+      }
+    },
     stringsLook: {
       title: 'Strings', tab: 'graphics', motion: 'strings', step: 'strum',
       fields: {
         count: { label: 'Number of strings', unit: '', min: 1, max: 6, step: 1, hint: 'how many of the six strings are drawn and playable' },
         length: { label: 'String length', unit: '%', min: 40, max: 100, step: 5, hint: 'length along the neck, shortened from both ends' },
         width: { label: 'String width', unit: '%', min: 50, max: 300, step: 10, hint: 'thickness of every string' },
+        colorMode: { label: 'Color style', type: 'select', options: ['Single', 'Gradient', 'Rainbow'], hint: 'one color, a blend from color to second color across the strings, or a rainbow' },
         color: { label: 'String color', type: 'color' },
+        colorB: { label: 'Second color (gradient)', type: 'color' },
+        glowColor: { label: 'Glow color', type: 'color' },
         chord: { label: 'Chord', type: 'select', options: Object.keys(CHORDS), hint: 'the notes the six strings play' }
       }
     },
@@ -108,23 +147,56 @@ window.Tuning = (() => {
         columns: { label: 'Equalizer columns', unit: '', min: 12, max: 96, step: 1, hint: 'number of dot columns along the floor' },
         rows: { label: 'Column height', unit: 'dots', min: 3, max: 16, step: 1, hint: 'how many dots a column can light' },
         dotSize: { label: 'Dot size', unit: 'px', min: 3, max: 14, step: .5, hint: 'radius of the largest dots' },
-        ringWidth: { label: 'Ring width', unit: 'px', min: 4, max: 40, step: 1, hint: 'line width of the rings from the star' },
+        ringOrigin: { label: 'Ring layout', type: 'select', options: ['Strumming hand', 'Fretting hand', 'Both hands', 'Star head'], hint: 'where the beat rings start' },
+        ringsPerBeat: { label: 'Rings per beat', unit: '', min: 0, max: 5, step: 1, hint: 'how many rings ripple out on each beat' },
+        ringSize: { label: 'Ring size', unit: '%', min: 30, max: 200, step: 5, hint: 'how far the rings spread' },
+        ringWidth: { label: 'Ring width', unit: 'px', min: 4, max: 40, step: 1, hint: 'line width of the rings' },
         colorA: { label: 'Color A', type: 'color' },
         colorB: { label: 'Color B', type: 'color' }
       }
     },
     notes: {
-      title: 'Orbiting notes', tab: 'graphics', motion: 'notes', step: 'inside',
+      title: 'Character effects', tab: 'graphics', motion: 'notes', step: 'inside',
       fields: {
-        count: { label: 'Notes per character', unit: '', min: 0, max: 12, step: 1, hint: 'music notes circling the guitarist and each member on the small TV' },
-        shape: { label: 'Note shape', type: 'select', options: ['Eighth note', 'Beamed notes', 'Quarter note', 'Sixteenth notes', 'Mixed'], hint: 'which note symbol circles the characters' },
-        size: { label: 'Note size', unit: 'px', min: 12, max: 80, step: 1, hint: 'height of a note at the guitarist; smaller around the TV band' },
-        orbitWidth: { label: 'Orbit width', unit: '%', min: 60, max: 300, step: 5, hint: 'width of the orbit, against the character’s width' },
-        orbitHeight: { label: 'Orbit height', unit: '%', min: 10, max: 150, step: 5, hint: 'height of the orbit, against the character’s width' },
-        lap: { label: 'Time per orbit', unit: 's', min: 2, max: 20, step: .5, hint: 'how long a note takes to go once around' },
-        glow: { label: 'Glow', unit: 'px', min: 0, max: 20, step: 1, hint: 'soft light around each note' },
+        effect: { label: 'Effect', type: 'select', options: ['Orbiting notes', 'Sparkles', 'Hearts', 'Stars', 'Bubbles', 'Petals', 'Mixed shapes'], hint: 'what moves around the guitarist and each member on the small TV' },
+        pattern: { label: 'Movement', type: 'select', options: ['Orbit', 'Rise', 'Burst', 'Twinkle'], hint: 'circle the character, float upward, fly outward, or twinkle in place' },
+        count: { label: 'Amount per character', unit: '', min: 0, max: 16, step: 1, hint: 'how many shapes each character gets' },
+        shape: { label: 'Note shape', type: 'select', options: ['Eighth note', 'Beamed notes', 'Quarter note', 'Sixteenth notes', 'Mixed'], hint: 'which note symbol, when the effect is Orbiting notes' },
+        size: { label: 'Size', unit: 'px', min: 12, max: 80, step: 1, hint: 'height of a shape at the guitarist; smaller around the TV band' },
+        orbitWidth: { label: 'Spread width', unit: '%', min: 60, max: 300, step: 5, hint: 'width of the area the shapes move in, against the character’s width' },
+        orbitHeight: { label: 'Spread height', unit: '%', min: 10, max: 150, step: 5, hint: 'height of that area, against the character’s width' },
+        lap: { label: 'Cycle time', unit: 's', min: 2, max: 20, step: .5, hint: 'how long one orbit, rise, burst or twinkle takes' },
+        glow: { label: 'Glow', unit: 'px', min: 0, max: 20, step: 1, hint: 'soft light around each shape' },
         colorA: { label: 'Color A', type: 'color' },
         colorB: { label: 'Color B', type: 'color' }
+      }
+    },
+    toTv: {
+      title: 'Room → TV', tab: 'transitions', motion: 'toTv', step: 't-toTv',
+      fields: {
+        method: { label: 'Transition', type: 'select', options: TRANSITIONS, hint: 'how one scene changes into the next' },
+        duration: { label: 'Duration', unit: 'ms', min: 300, max: 5000, step: 100, hint: 'how long the change takes' }
+      }
+    },
+    toStrings: {
+      title: 'Guitarist → strings', tab: 'transitions', motion: 'toStrings', step: 't-toStrings',
+      fields: {
+        method: { label: 'Transition', type: 'select', options: TRANSITIONS, hint: 'how one scene changes into the next' },
+        duration: { label: 'Duration', unit: 'ms', min: 300, max: 5000, step: 100, hint: 'how long the change takes' }
+      }
+    },
+    toInside: {
+      title: 'Tear → world inside', tab: 'transitions', motion: 'toInside', step: 't-toInside',
+      fields: {
+        method: { label: 'Transition', type: 'select', options: TRANSITIONS, hint: 'how one scene changes into the next' },
+        duration: { label: 'Duration', unit: 'ms', min: 300, max: 5000, step: 100, hint: 'how long the change takes' }
+      }
+    },
+    toRestart: {
+      title: 'Restart → room', tab: 'transitions', motion: 'toRestart', step: 't-toRestart',
+      fields: {
+        method: { label: 'Transition', type: 'select', options: TRANSITIONS, hint: 'how one scene changes into the next' },
+        duration: { label: 'Duration', unit: 'ms', min: 300, max: 5000, step: 100, hint: 'how long the change takes' }
       }
     }
   };
@@ -164,7 +236,15 @@ window.Tuning = (() => {
     for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; fn(m) < v ? lo = m : hi = m; }
     return (lo + hi) / 2;
   }
+  // color of string i (0 = low E) for the chosen style
+  const hex = (r, g, b) => '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  function stringColor(i) {
+    const L = live.stringsLook, u = i / 5;
+    if (L.colorMode === 'Rainbow') { const h = i * 55, f = n => { const k = (n + h / 30) % 12; return 255 * (.72 - .26 * Math.max(-1, Math.min(k - 3, 9 - k, 1))); }; return hex(f(0), f(8), f(4)); }
+    if (L.colorMode === 'Gradient') { const p = parseInt(L.color.slice(1), 16), q = parseInt(L.colorB.slice(1), 16), c = s => (p >> s & 255) * (1 - u) + (q >> s & 255) * u; return hex(c(16), c(8), c(0)); }
+    return L.color;
+  }
   const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})`; };
 
-  return { SAVED, SCHEMA, MOTIONS, EASE, CHORDS, NOTE_NAMES, live, set, restore, ease, cssEase, invert, rgba, onChange: fn => listeners.add(fn) };
+  return { SAVED, SCHEMA, MOTIONS, EASE, CHORDS, NOTES, TRANSITIONS, stringColor, live, set, restore, ease, cssEase, invert, rgba, onChange: fn => listeners.add(fn) };
 })();
