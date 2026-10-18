@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- the star-headed guitarist's head: pink star with cyan shards behind it -->
+  <g fill="#5ae6ec" stroke="#0f3a40" stroke-width=".8" stroke-linejoin="round">
+    <polygon points="17,15 19,2 23,13"/>
+    <polygon points="30,16 45,9 33,21"/>
+    <polygon points="13,22 2,25 14,27"/>
+    <polygon points="33,30 41,42 29,33"/>
+    <polygon points="18,34 14,46 22,37"/>
+  </g>
+  <polygon points="24,4 28.7,16.6 42,17.4 31.7,25.8 35,38.8 24,31.4 13,38.8 16.3,25.8 6,17.4 19.3,16.6" fill="#ee2a63" stroke="#2a0d16" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M41 17.6 L41.6 25" stroke="#e8d9c8" stroke-width=".9" fill="none"/>
+  <circle cx="41.7" cy="26.4" r="1.4" fill="none" stroke="#e8d9c8" stroke-width=".8"/>
+</svg>

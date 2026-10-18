@@ -1,29 +1,78 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hello World</title>
-  <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-    }
-    body {
-      background: #f7c6d9 url("images/background.webp") center / cover no-repeat;
-      font-family: Georgia, "Times New Roman", serif;
-    }
-    h1 {
-      margin: 0;
-      padding: 2rem 1rem;
-      text-align: center;
-      font-size: clamp(2rem, 6vw, 4rem);
-      color: #fff;
-      text-shadow: 0 2px 8px rgba(160, 20, 80, 0.6);
-    }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>The Other Side of the Screen</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400&display=swap">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <h1>Hello world!</h1>
+  <!-- Layout: one 2000×1127 stage scaled to fit the window; each step of the sequence is a scene layer inside it. -->
+  <div id="stage" aria-live="polite">
+
+    <!-- 1. The room: a TV on a pedestal, highlighted -->
+    <section id="scene-room" class="scene is-active">
+      <img class="scene-bg" src="assets/images/room.webp" alt="An old television on a wooden pedestal in a dark purple room" draggable="false">
+      <button id="tv-hotspot" class="halo-target" type="button" aria-label="Look at the television"></button>
+    </section>
+
+    <!-- 2–3. The TV close-up: play button, curtains, the band -->
+    <section id="scene-tv" class="scene">
+      <img class="scene-bg" src="assets/images/tv-closeup.webp" alt="" draggable="false">
+      <div id="screen">
+        <div id="band">
+          <img src="assets/images/band.webp" alt="A four-member band on stage" draggable="false">
+        </div>
+        <div id="curtain-left" class="curtain"></div>
+        <div id="curtain-right" class="curtain"></div>
+        <div id="screen-dim"></div>
+        <div class="scanlines"></div>
+        <div class="glass"></div>
+        <button class="member" type="button" data-i="0" aria-label="Bassist" tabindex="-1"></button>
+        <button class="member" type="button" data-i="1" aria-label="Drummer" tabindex="-1"></button>
+        <button class="member" type="button" data-i="2" aria-label="Keyboardist" tabindex="-1"></button>
+        <button class="member" type="button" data-i="3" aria-label="Guitarist" tabindex="-1"></button>
+      </div>
+      <div id="play" role="button" aria-label="Play" tabindex="-1">
+        <div id="play-well"></div>
+        <div id="play-cap"></div>
+        <div id="play-halo"></div>
+      </div>
+    </section>
+
+    <!-- 4–5. The guitar close-up: strum the strings, then tear the screen open -->
+    <section id="scene-guitar" class="scene">
+      <canvas id="strum" aria-label="Guitar strings"></canvas>
+      <canvas id="tear" aria-label="Paper screen with a torn slit"></canvas>
+    </section>
+
+    <!-- 6. Inside: the performance space -->
+    <section id="scene-inside" class="scene">
+      <img class="scene-bg" src="assets/images/performance.webp" alt="The star-headed guitarist playing beside an old television that shows the band" draggable="false">
+      <div id="inside-tv-glow"></div>
+    </section>
+
+    <!-- Dialog box (band introductions and the ending) -->
+    <div id="dialog" class="dialog" hidden>
+      <svg class="dialog-deco" viewBox="-230 -170 1240 460" aria-hidden="true"></svg>
+      <div class="dialog-box"><p class="dialog-text"></p></div>
+    </div>
+
+    <div id="ending" hidden>
+      <button id="restart" type="button">Restart</button>
+    </div>
+  </div>
+
+  <audio id="music" src="assets/audio/Lilacs.mp3" preload="auto" loop></audio>
+
+  <script src="js/sound.js"></script>
+  <script src="js/press.js"></script>
+  <script src="js/strum.js"></script>
+  <script src="js/tear.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
