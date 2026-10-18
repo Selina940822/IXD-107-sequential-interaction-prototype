@@ -39,3 +39,5 @@ The original studies are kept unchanged in their own folders.
 | Press the Play Button | [`press-the-play-button/`](press-the-play-button/) | https://selina940822.github.io/IXD-107-sequential-interaction-prototype/press-the-play-button/ |
 | Strum the Strings | [`strum-the-strings/`](strum-the-strings/) | https://selina940822.github.io/IXD-107-sequential-interaction-prototype/strum-the-strings/ |
 | Tear Open the Screen | [`tear-open-the-screen/`](tear-open-the-screen/) | https://selina940822.github.io/IXD-107-sequential-interaction-prototype/tear-open-the-screen/ |
+
+**Instant preview (Claude artifact):** https://claude.ai/artifact/8NWuLRTKRe7izZR6Q7mHVg. It is updated together with every push to `main`, so changes show there while GitHub Pages is still deploying. Rebuild its page with `python3 tools/build-artifact.py <out-dir>`.
