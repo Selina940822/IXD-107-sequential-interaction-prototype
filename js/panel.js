@@ -358,7 +358,7 @@
     g.fillText(`${P.fibres} fibres · ${P.fibreLength} px long`, 10, 16);
   }
 
-  // dialog box: pops in with its motion curve, at its width, frame and colors, with its doodles
+  // dialog box: pops in with its motion curve, at its width, frame and colors, with the eyes on its corners
   function drawDialog(now) {
     const [g, w, h] = fitCanvas(cvs.dialog), D = T.live.dialog, E = T.ease('dialog');
     const dur = 420, cycle = 2400, t = (now - t0.dialog) % cycle;
