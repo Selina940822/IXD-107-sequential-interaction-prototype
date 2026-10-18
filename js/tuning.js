@@ -6,7 +6,7 @@ window.Tuning = (() => {
 
   const SAVED = {
     key: { hold: 400, travel: 6, rebound: 150, motion: 'Ease In-Out' },
-    strings: { maxPull: 30, amplitude: 25, decay: 4.7, motion: 'Ease In-Out' },
+    strings: { maxPull: 39, amplitude: 70, decay: 4.7, motion: 'Ease In' },
     paper: { tearDistance: 1000, roughness: 60, shadow: 30, motion: 'Ease In' }
   };
 
