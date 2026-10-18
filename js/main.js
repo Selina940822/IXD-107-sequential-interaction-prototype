@@ -39,7 +39,6 @@
 
   /* ---------- dialog ---------- */
   const dialog = $('dialog'), dialogText = dialog.querySelector('.dialog-text');
-  buildDeco(dialog.querySelector('.dialog-deco'));
   // anchor: [x, y] in stage pixels; the dialog's lower-left corner sits there (a band member's upper right)
   function say(text, ending = false, anchor = null) {
     dialogText.textContent = text;
@@ -59,58 +58,6 @@
       .finished.catch(() => {}).then(hush);
   }
 
-  // the doodles around the reference dialog box: a scribbled glowing star, a lightning bolt,
-  // two eyes on the frame corners and a thin line running through
-  function buildDeco(svg) {
-    const NS = 'http://www.w3.org/2000/svg';
-    const el = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
-    const defs = el('defs', {});
-    const glow = el('filter', { id: 'deco-glow', x: '-50%', y: '-50%', width: '200%', height: '200%' }, defs);
-    el('feGaussianBlur', { stdDeviation: '4', result: 'b' }, glow);
-    const merge = el('feMerge', {}, glow); el('feMergeNode', { in: 'b' }, merge); el('feMergeNode', { in: 'SourceGraphic' }, merge);
-
-    // thin line through the left and right of the box
-    // each doodle is its own group, so the panel can show 0–4 of them (star, lightning, eyes, lines)
-    const doodle = name => el('g', { class: 'doodle', 'data-doodle': name });
-    const gLines = doodle('lines'), gStar = doodle('star'), gBolt = doodle('bolt'), gEyes = doodle('eyes');
-    el('path', { d: 'M-230 120 C-120 118 -60 124 0 120', stroke: 'rgba(255,255,255,.7)', 'stroke-width': 2, fill: 'none' }, gLines);
-    el('ellipse', { cx: -40, cy: 146, rx: 70, ry: 9, stroke: 'rgba(255,255,255,.55)', 'stroke-width': 1.5, fill: 'none' }, gLines);
-    el('path', { d: 'M760 112 C820 110 880 108 960 106', stroke: 'rgba(255,255,255,.6)', 'stroke-width': 2, fill: 'none' }, gLines);
-
-    // scribbled star: several jittery passes, with pink/cyan misregistration
-    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    const cx = -80, cy = 20, R = 100, r = 40;
-    const pts = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]); }
-    const scribble = () => {
-      let d = '';
-      for (let pass = 0; pass < 4; pass++) pts.concat([pts[0]]).forEach(([x, y], i) => { d += `${i || pass ? 'L' : 'M'}${(x + (rnd() - .5) * 18).toFixed(1)} ${(y + (rnd() - .5) * 18).toFixed(1)} `; });
-      for (let h = 0; h < 14; h++) { const y = cy - 60 + h * 9; d += `M${cx - 55 + rnd() * 20} ${y} L${cx + 35 + rnd() * 20} ${y + 30} `; }
-      return d;
-    };
-    const g = el('g', { filter: 'url(#deco-glow)', fill: 'none', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, gStar);
-    el('path', { d: scribble(), class: 'deco-cyan', stroke: 'rgba(143,227,232,.85)', 'stroke-width': 2.4, transform: 'translate(-3 2)' }, g);
-    el('path', { d: scribble(), class: 'deco-pink', stroke: 'rgba(240,140,179,.85)', 'stroke-width': 2.4, transform: 'translate(3 -2)' }, g);
-    el('path', { d: scribble(), stroke: '#fff', 'stroke-width': 2.6 }, g);
-    // a dangling red cord
-    el('path', { d: 'M-70 -80 C-90 -120 -60 -160 -40 -170 M-40 -170 C-20 -150 -20 -120 -45 -110', stroke: '#c0263a', 'stroke-width': 2.5, fill: 'none' }, gStar);
-
-    // lightning bolt
-    el('polygon', { points: '70,-150 150,-75 110,-72 160,-20 60,-60 100,-64', fill: '#fff', filter: 'url(#deco-glow)' }, gBolt);
-    // eyes on the frame corners
-    const eye = (x, y) => {
-      el('path', { d: `M${x - 34} ${y} Q${x} ${y - 30} ${x + 34} ${y} Q${x} ${y + 30} ${x - 34} ${y} Z`, fill: '#fff', stroke: '#222', 'stroke-width': 6 }, gEyes);
-      el('circle', { cx: x, cy: y, r: 11, fill: '#222' }, gEyes);
-    };
-    eye(30, -6);
-    // the second eye sits on the box's bottom-right corner, whatever the box size
-    const corner = document.createElementNS(NS, 'svg');
-    corner.setAttribute('viewBox', '-40 -40 80 80'); corner.setAttribute('class', 'dialog-eye doodle'); corner.setAttribute('data-doodle', 'eyes'); corner.setAttribute('aria-hidden', 'true');
-    svg.parentNode.querySelector('.dialog-box').appendChild(corner);
-    el('path', { d: 'M-34 0 Q0 -30 34 0 Q0 30 -34 0 Z', fill: '#fff', stroke: '#222', 'stroke-width': 6 }, corner);
-    el('circle', { cx: 0, cy: 0, r: 11, fill: '#222' }, corner);
-  }
-
-  /* ---------- 1. room ---------- */
   const tvHotspot = $('tv-hotspot');
   tvHotspot.addEventListener('click', async () => {
     if (step !== 'room') return;
@@ -309,7 +256,7 @@
         let beat = false, l;
         if (lv === null) { l = .3 + .25 * Math.max(0, Math.sin(now / 833 * Math.PI * 2)); beat = now - last > 833; }
         else { l = lv; avg = avg * .96 + lv * .04; beat = lv > avg * 1.18 && lv > .15 && now - last > 330; }
-        if (beat) { last = now; pulse = 1; if (!reduce) ring(l > avg * 1.35); }
+        if (beat) { last = now; pulse = 1; Notes.pulse(); if (!reduce) ring(l > avg * 1.35); }
         pulse *= .9;
         glow.setAttribute('opacity', (.16 + l * .3 + pulse * .3).toFixed(3));
         glow.setAttribute('r', (210 + pulse * 50).toFixed(1));
@@ -333,8 +280,9 @@
         });
       };
       raf = requestAnimationFrame(tick);
+      Notes.start();
     }
-    function stop() { cancelAnimationFrame(raf); if (built) $('fx-rings').replaceChildren(); }
+    function stop() { cancelAnimationFrame(raf); Notes.stop(); if (built) $('fx-rings').replaceChildren(); }
     return { start, stop };
   })();
 

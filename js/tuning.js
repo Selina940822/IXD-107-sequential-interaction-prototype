@@ -13,8 +13,9 @@ window.Tuning = (() => {
     stringsLook: { count: 6, length: 100, width: 60, color: '#d6dede', chord: 'E minor' },
     paperLook: { fibres: 35, fibreLength: 6, fibreWidth: 1, paperColor: '#eeeeee', fibreColor: '#fafafa' },
     glow: { layers: 3, spread: 11, width: 1.5, color: '#fbffcc', motion: 'Ease In-Out' },
-    dialog: { doodles: 0, width: 480, border: 3.5, pink: '#f08cb3', cyan: '#5fb9c0', motion: 'Spring/Bounce' },
-    effects: { columns: 69, rows: 9, dotSize: 6.5, ringWidth: 32, colorA: '#ff6fae', colorB: '#6ff3fb', motion: 'Ease Out' }
+    dialog: { width: 480, border: 3.5, pink: '#f08cb3', cyan: '#5fb9c0', eyes: 2, eyeShape: 'Almond', eyeWidth: 68, eyeHeight: 30, pupil: 22, eyeColor: '#ffffff', pupilColor: '#222222', motion: 'Spring/Bounce' },
+    effects: { columns: 69, rows: 9, dotSize: 6.5, ringWidth: 32, colorA: '#ff6fae', colorB: '#6ff3fb', motion: 'Ease Out' },
+    notes: { count: 5, shape: 'Mixed', size: 36, orbitWidth: 150, orbitHeight: 35, lap: 6, glow: 6, colorA: '#ffffff', colorB: '#ff6fae', motion: 'Linear' }
   };
 
   // the six notes of each chord, low E string first (Hz)
@@ -88,11 +89,17 @@ window.Tuning = (() => {
     dialog: {
       title: 'Dialog box', tab: 'graphics', motion: 'dialog', step: 'band',
       fields: {
-        doodles: { label: 'Doodles around the box', unit: '', min: 0, max: 4, step: 1, hint: 'star, lightning, eyes and lines, added in that order' },
         width: { label: 'Box width', unit: 'px', min: 480, max: 960, step: 10, hint: 'width of the box before it is scaled next to a member' },
         border: { label: 'Border thickness', unit: 'px', min: 1, max: 8, step: .5, hint: 'thickness of the pink frame' },
         pink: { label: 'Frame and text color', type: 'color' },
-        cyan: { label: 'Offset frame color', type: 'color' }
+        cyan: { label: 'Offset frame color', type: 'color' },
+        eyes: { label: 'Eyes on the corners', unit: '', min: 0, max: 4, step: 1, hint: 'top left, bottom right, top right, bottom left, added in that order' },
+        eyeShape: { label: 'Eye shape', type: 'select', options: ['Almond', 'Round', 'Half-closed'], hint: 'the outline of each eye' },
+        eyeWidth: { label: 'Eye width', unit: 'px', min: 30, max: 140, step: 2, hint: 'width of each eye' },
+        eyeHeight: { label: 'Eye height', unit: 'px', min: 12, max: 80, step: 2, hint: 'height of each eye when open' },
+        pupil: { label: 'Pupil size', unit: 'px', min: 6, max: 40, step: 1, hint: 'diameter of the pupil' },
+        eyeColor: { label: 'Eye color', type: 'color' },
+        pupilColor: { label: 'Pupil and outline color', type: 'color' }
       }
     },
     effects: {
@@ -102,6 +109,20 @@ window.Tuning = (() => {
         rows: { label: 'Column height', unit: 'dots', min: 3, max: 16, step: 1, hint: 'how many dots a column can light' },
         dotSize: { label: 'Dot size', unit: 'px', min: 3, max: 14, step: .5, hint: 'radius of the largest dots' },
         ringWidth: { label: 'Ring width', unit: 'px', min: 4, max: 40, step: 1, hint: 'line width of the rings from the star' },
+        colorA: { label: 'Color A', type: 'color' },
+        colorB: { label: 'Color B', type: 'color' }
+      }
+    },
+    notes: {
+      title: 'Orbiting notes', tab: 'graphics', motion: 'notes', step: 'inside',
+      fields: {
+        count: { label: 'Notes per character', unit: '', min: 0, max: 12, step: 1, hint: 'music notes circling the guitarist and each member on the small TV' },
+        shape: { label: 'Note shape', type: 'select', options: ['Eighth note', 'Beamed notes', 'Quarter note', 'Sixteenth notes', 'Mixed'], hint: 'which note symbol circles the characters' },
+        size: { label: 'Note size', unit: 'px', min: 12, max: 80, step: 1, hint: 'height of a note at the guitarist; smaller around the TV band' },
+        orbitWidth: { label: 'Orbit width', unit: '%', min: 60, max: 300, step: 5, hint: 'width of the orbit, against the character’s width' },
+        orbitHeight: { label: 'Orbit height', unit: '%', min: 10, max: 150, step: 5, hint: 'height of the orbit, against the character’s width' },
+        lap: { label: 'Time per orbit', unit: 's', min: 2, max: 20, step: .5, hint: 'how long a note takes to go once around' },
+        glow: { label: 'Glow', unit: 'px', min: 0, max: 20, step: 1, hint: 'soft light around each note' },
         colorA: { label: 'Color A', type: 'color' },
         colorB: { label: 'Color B', type: 'color' }
       }

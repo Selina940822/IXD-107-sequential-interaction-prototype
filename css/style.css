@@ -258,6 +258,14 @@ body {
   mix-blend-mode: screen;
   overflow: visible;
 }
+#inside-notes, .tv-notes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
 #inside-fx .beam { transform-box: fill-box; transform-origin: 50% 0; animation: beam-sweep 7s ease-in-out infinite alternate; }
 #inside-fx .beam.b2 { animation-duration: 9s; animation-delay: -3s; }
 @keyframes beam-sweep { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
@@ -355,25 +363,12 @@ body {
   color: var(--dlg-p);
   text-shadow: 3px 3px 0 color-mix(in srgb, var(--dlg-c-lt) 90%, transparent);
 }
-.dialog-eye {
-  position: absolute;
-  right: -40px;
-  bottom: -40px;
-  width: 80px;
-  height: 80px;
-  z-index: 1;
-}
-.dialog .deco-cyan { stroke: color-mix(in srgb, var(--dlg-c-lt) 85%, transparent); }
-.dialog .deco-pink { stroke: color-mix(in srgb, var(--dlg-p) 85%, transparent); }
-.dialog-deco {
-  position: absolute;
-  left: -230px;
-  top: -170px;
-  width: 1240px;
-  height: 460px;
-  overflow: visible;
-  pointer-events: none;
-}
+/* eyes on the box corners, drawn by js/looks.js; centred on their corner */
+.dialog-eye { position: absolute; translate: -50% -50%; overflow: visible; z-index: 1; pointer-events: none; }
+.dialog-eye[data-corner="tl"] { left: 30px; top: -6px; }
+.dialog-eye[data-corner="br"] { left: 100%; top: 100%; }
+.dialog-eye[data-corner="tr"] { left: calc(100% - 30px); top: -6px; }
+.dialog-eye[data-corner="bl"] { left: 0; top: 100%; }
 
 #ending {
   position: absolute;

@@ -1,6 +1,6 @@
-// Applies the panel's graphics settings that live in CSS: the band member glow and the dialog
-// box (width, frame, colors, doodles and entrance curve). Re-applied on every change.
-(() => {
+// Applies the panel's graphics settings for the band member glow and the dialog box (width,
+// frame, colors, entrance curve and the eyes on its corners). Re-applied on every change.
+window.Looks = (() => {
   "use strict";
   const T = window.Tuning;
   const style = document.createElement('style');
@@ -34,12 +34,41 @@
         --dlg-cyan: ${D.cyan};
         --dlg-ease: ${T.cssEase('dialog')};
       }`;
-    // doodles appear in this order as the count goes up
-    const order = ['star', 'bolt', 'eyes', 'lines'];
-    document.querySelectorAll('.doodle').forEach(d => {
-      d.style.display = order.indexOf(d.dataset.doodle) < D.doodles ? '' : 'none';
+    drawEyes(D);
+  }
+
+  // the eye outline for a shape, w wide and h tall, centred on 0,0
+  function eyePath(shape, w, h) {
+    const x = w / 2, y = h / 2;
+    if (shape === 'Round') return `M${-x} 0A${x} ${y} 0 1 0 ${x} 0A${x} ${y} 0 1 0 ${-x} 0Z`;
+    if (shape === 'Half-closed') return `M${-x} 0Q0 ${-h * .25} ${x} 0Q0 ${h} ${-x} 0Z`;
+    return `M${-x} 0Q0 ${-h} ${x} 0Q0 ${h} ${-x} 0Z`;
+  }
+  // eyes on the box corners, added in this order as the count goes up
+  const CORNERS = ['tl', 'br', 'tr', 'bl'];
+  function drawEyes(D) {
+    const box = document.querySelector('#dialog .dialog-box');
+    if (!box) return;
+    const NS = 'http://www.w3.org/2000/svg', line = 5, pad = line + 2;
+    const w = D.eyeWidth, h = D.eyeHeight, d = eyePath(D.eyeShape, w, h);
+    CORNERS.forEach((corner, i) => {
+      let svg = box.querySelector(`.dialog-eye[data-corner="${corner}"]`);
+      if (!svg) {
+        svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('class', 'dialog-eye'); svg.setAttribute('data-corner', corner); svg.setAttribute('aria-hidden', 'true');
+        box.appendChild(svg);
+      }
+      svg.style.display = i < D.eyes ? '' : 'none';
+      svg.setAttribute('width', w + pad * 2); svg.setAttribute('height', h + pad * 2);
+      svg.setAttribute('viewBox', `${-w / 2 - pad} ${-h / 2 - pad} ${w + pad * 2} ${h + pad * 2}`);
+      // the pupil is clipped to the eye, so a large pupil fills it instead of spilling out
+      svg.innerHTML = `<clipPath id="eye-clip-${corner}"><path d="${d}"/></clipPath>
+        <path d="${d}" fill="${D.eyeColor}"/>
+        <circle r="${D.pupil / 2}" fill="${D.pupilColor}" clip-path="url(#eye-clip-${corner})"/>
+        <path d="${d}" fill="none" stroke="${D.pupilColor}" stroke-width="${line}" stroke-linejoin="round"/>`;
     });
   }
   T.onChange((g) => { if (g === null || g === 'glow' || g === 'dialog') apply(); });
   apply();
+  return { eyePath };
 })();

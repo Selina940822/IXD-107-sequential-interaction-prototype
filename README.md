@@ -25,8 +25,9 @@ A floating, collapsible panel on the left tunes the prototype while you use it. 
 - **Strings**: number of strings, length, width, color, and the chord the six strings play (**Hear chord** strums it)
 - **Paper tear**: number, length, width and color of the loose fibres, torn edge color
 - **Band member glow**: glow layers, spread, outline width, color
-- **Dialog box**: number of doodles, box width, border thickness, frame and offset colors
+- **Dialog box**: box width, border thickness, frame and offset colors, and the eyes on its corners (how many, shape, width, height, pupil size, colors)
 - **Final-scene lights**: equalizer columns and height, dot size, ring width, two colors
+- **Orbiting notes**: music notes circling the guitarist and the band on the small TV in the final scene (how many, note shape, size, orbit width and height, time per orbit, glow, two colors); they pop on each beat
 
 Every section has a motion curve (Linear, Ease In, Ease Out, Ease In-Out, Spring/Bounce; the strings and paper share theirs between the two tabs), units and ranges on each control, a live preview and a **Try it** button that jumps to that step. **Restore defaults** returns to the saved values in `js/tuning.js`; **Copy settings** copies every component's current values with an instruction to save them as the new defaults.
 
@@ -37,7 +38,8 @@ Every section has a motion curve (Linear, Ease In, Ease Out, Ease In-Out, Spring
 - `js/press.js`, `js/strum.js`, `js/tear.js`: the three study interactions adapted as steps
 - `js/main.js`: the sequence, transitions, dialogs, final-scene effects and restart
 - `js/tuning.js`: the saved motion and graphics settings, chords and curves the components read live
-- `js/looks.js`: applies the glow and dialog box settings as CSS
+- `js/looks.js`: applies the glow and dialog box settings and draws the dialog's eyes
+- `js/notes.js`: the music notes orbiting the characters in the final scene
 - `js/panel.js`: the control panel
 - `assets/images/`: all scene pictures as vector SVG, plus the cursors
 - `assets/audio/`: `Lilacs.mp3` and the dialog click

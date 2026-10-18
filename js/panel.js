@@ -373,18 +373,47 @@
     g.strokeStyle = D.pink; g.lineWidth = D.border * k * 2; g.strokeRect(-bw / 2, -bh / 2, bw, bh);
     g.fillStyle = D.pink; g.font = '14px Raleway, sans-serif'; g.textAlign = 'center';
     g.fillText('Hi! I play the bass.', 0, 5);
-    // doodles, in the same order as on the real box: star, lightning, eyes, lines
-    g.lineWidth = 1.6; g.lineJoin = 'round';
-    const L = -bw / 2, R = bw / 2, Tp = -bh / 2, B = bh / 2;
-    const doodles = [
-      () => { g.strokeStyle = D.pink; g.beginPath(); for (let i = 0; i <= 10; i++) { const r = i % 2 ? 4 : 10, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(L - 4 + r * Math.cos(a), Tp - 8 + r * Math.sin(a)); } g.stroke(); },
-      () => { g.strokeStyle = mix(D.cyan, '#ffffff', .2); g.beginPath(); g.moveTo(R + 2, Tp - 18); g.lineTo(R - 5, Tp - 6); g.lineTo(R + 3, Tp - 6); g.lineTo(R - 4, Tp + 6); g.stroke(); },
-      () => { g.strokeStyle = D.pink; [0, 11].forEach(dx => { g.beginPath(); g.ellipse(R - 10 + dx, B + 10, 4.5, 3, 0, 0, Math.PI * 2); g.stroke(); }); },
-      () => { g.strokeStyle = mix(D.cyan, '#ffffff', .2); [0, 6, 12].forEach(dy => { g.beginPath(); g.moveTo(L - 14, B - 8 + dy); g.lineTo(L - 4, B - 12 + dy); g.stroke(); }); }
-    ];
-    doodles.slice(0, D.doodles).forEach(f => f());
+    // the eyes on the corners, at the box's scale
+    const ps = bw / D.width, L = -bw / 2, R = bw / 2, Tp = -bh / 2, B = bh / 2;
+    const eye = new Path2D(Looks.eyePath(D.eyeShape, D.eyeWidth * ps, D.eyeHeight * ps));
+    [[L + 30 * ps, Tp - 6 * ps], [R, B], [R - 30 * ps, Tp - 6 * ps], [L, B]].slice(0, D.eyes).forEach(([x, y]) => {
+      g.save(); g.translate(x, y);
+      g.fillStyle = D.eyeColor; g.fill(eye);
+      g.save(); g.clip(eye); g.fillStyle = D.pupilColor; g.beginPath(); g.arc(0, 0, D.pupil * ps / 2, 0, Math.PI * 2); g.fill(); g.restore();
+      g.strokeStyle = D.pupilColor; g.lineWidth = Math.max(1, 5 * ps); g.lineJoin = 'round'; g.stroke(eye);
+      g.restore();
+    });
     g.restore();
   }
+
+  // orbiting notes: a simple figure with its notes circling, at the guitarist's proportions
+  function drawNotes(now) {
+    const [g, w, h] = fitCanvas(cvs.notes), S = T.live.notes, t = (now - t0.notes) / 1000;
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#1a0c1f'; g.fillRect(0, 0, w, h);
+    const k = h / 300, cx = w / 2, cy = h * .42, cw = 300 * k * .55;
+    // the figure: a star head over a body
+    g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(cx - cw * .3, cy - 4, cw * .6, h);
+    g.fillStyle = 'rgba(240,71,140,.55)'; g.beginPath();
+    for (let i = 0; i <= 10; i++) { const r = i % 2 ? 7 : 17, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(cx + r * Math.cos(a), cy - 18 + r * Math.sin(a)); }
+    g.fill();
+    if (Math.floor(t / .833) !== Math.floor((t - 1 / 60) / .833)) restartPop = now;
+    const pop = Math.exp(-(now - (restartPop || 0)) / 150);
+    const items = Array.from({ length: S.count }, (_, i) => ({ i, p: Notes.place(i, S.count, t, 1) })).sort((a, b) => a.p.depth - b.p.depth);
+    g.save();
+    if (S.glow) { g.shadowColor = T.rgba(S.colorA, .9); g.shadowBlur = S.glow * .8; }
+    items.forEach(({ i, p }) => {
+      const s = S.size * k * 1.4 * (.7 + .3 * p.depth) * (1 + .35 * pop);
+      g.save();
+      g.translate(cx + cw * S.orbitWidth / 200 * p.x, cy + cw * S.orbitHeight / 200 * p.y);
+      g.rotate((reduce ? 0 : 14 * Math.sin(t * 2 + i)) * Math.PI / 180); g.scale(s, s);
+      g.globalAlpha = .45 + .55 * p.depth; g.fillStyle = i % 2 ? S.colorB : S.colorA;
+      g.fill(new Path2D(Notes.path(S.shape, i)));
+      g.restore();
+    });
+    g.restore();
+  }
+  let restartPop = 0;
 
   // final-scene lights: the floor equalizer and a ring from the star, in their colors
   function drawEffects(now) {
@@ -410,7 +439,7 @@
     requestAnimationFrame(loop);
     if (panel.classList.contains('is-collapsed') || document.hidden) return;
     if (tab === 'motion') { drawKey(now); drawStrings(now); drawPaper(now); }
-    else { drawStringsLook(now); drawPaperLook(now); drawDialog(now); drawEffects(now); }
+    else { drawStringsLook(now); drawPaperLook(now); drawDialog(now); drawEffects(now); drawNotes(now); }
   }
 
   sync();
