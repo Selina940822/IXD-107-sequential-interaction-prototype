@@ -7,12 +7,12 @@ window.Tuning = (() => {
   const SAVED = {
     // motion
     key: { hold: 400, travel: 6, rebound: 150, motion: 'Spring/Bounce' },
-    strings: { maxPull: 39, amplitude: 70, decay: 4.7, motion: 'Linear' },
+    strings: { maxPull: 39, amplitude: 70, decay: 4.7, motion: 'Ease In' },
     paper: { tearDistance: 1000, roughness: 60, shadow: 30, motion: 'Linear' },
     // graphics
     spots: { count: 1, width: 800, sweep: 0, lap: 7, brightness: 50, colorA: '#ff7ac0', colorB: '#7ff6ff', motion: 'Ease In-Out' },
-    stringsLook: { count: 6, length: 100, width: 60, colorMode: 'Single', color: '#d6dede', colorB: '#f0478c', glowColor: '#ff96c4', chord: 'D minor' },
-    paperLook: { fibres: 35, fibreLength: 6, fibreWidth: 1, paperColor: '#eeeeee', fibreColor: '#fafafa' },
+    stringsLook: { count: 6, length: 100, width: 90, colorMode: 'Single', color: '#d6dede', colorB: '#f0478c', glowColor: '#ff96c4', chord: 'D minor' },
+    paperLook: { fibres: 70, fibreLength: 4, fibreWidth: 1, paperColor: '#eeeeee', fibreColor: '#fafafa' },
     glow: { layers: 3, spread: 11, width: 1.5, color: '#fbffcc', motion: 'Ease In-Out' },
     dialog: { width: 480, border: 3, pink: '#f08cb3', cyan: '#5fb9c0', eyes: 2, eyeShape: 'Almond', eyeWidth: 68, eyeHeight: 30, pupil: 25, eyeColor: '#ffffff', pupilColor: '#222222', motion: 'Spring/Bounce' },
     effects: { columns: 80, rows: 9, dotSize: 7, ringOrigin: 'Strumming hand', ringsPerBeat: 0, ringSize: 100, ringWidth: 15, colorA: '#ff6fae', colorB: '#6ff3fb', motion: 'Ease Out' },
