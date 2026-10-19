@@ -9,7 +9,7 @@
   --cyan-deep: #5fb9c0;
   --halo: rgba(255, 255, 255, .9);
   --cursor-star: url("../assets/images/cursor-star.svg") 16 16, pointer;
-  --cursor-shards: url("../assets/images/cursor-star-shards.svg") 30 30, pointer;
+  --cursor-shards: url("../assets/images/cursor-star-shards.svg") 15 16, pointer;
   color-scheme: dark;
 }
 

@@ -23,7 +23,7 @@ window.Strum = (() => {
     }; im.onerror = rej; im.src = url; });
   }
   const STAR = 'url("assets/images/cursor-star.svg") 16 16, pointer';
-  const SHARDS = 'url("assets/images/cursor-star-shards.svg") 30 30, pointer';
+  const SHARDS = 'url("assets/images/cursor-star-shards.svg") 15 16, pointer';
 
   function create(canvas, { onDone }) {
     const ctx = canvas.getContext('2d');
