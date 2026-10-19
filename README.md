@@ -6,10 +6,12 @@ Project 2 interaction prototype for IXD 107, built with Claude Code and publishe
 ## The Other Side of the Screen
 A linear sequence inspired by the music performance in the game *A Chamber of Stars*. You find a band playing inside an old television, get closer step by step, and finally enter their pink-and-blue performance space. Each step unlocks only after the one before it is finished. Every step uses the same 16:9 frame, and everything before entering the TV world happens inside the TV's frame.
 
+The pointer is a pink star throughout. Over anything you can interact with (the TV, the play key, the next band member, the strings, the torn edge, Restart and the panel's controls) it becomes the star-headed guitarist's head: the pink star with cyan shards and a hanging cord.
+
 1. **Room**: an old TV on a pedestal in a dark purple room, highlighted. Click it and the view slowly zooms in to the TV.
 2. **Play**: the TV's play key glows. Press and hold it until it clicks (from *Press the Play Button*), then the curtains on the screen slowly open. *Lilacs* starts, slightly muffled.
 3. **Band**: the four members sway gently. Click them in order as each one glows along its outline: bassist (left), drummer (back middle), keyboardist (right), guitarist (front middle). Each click plays a "ka-da" click and shows an introduction at the member's upper right.
-4. **Strum**: the guitarist's click zooms straight into the guitar close-up, still on the TV screen with the curtains framing it. The cursor is a pink star (with cyan shards over the softly glowing strings). Pluck or strum (from *Strum the Strings*) until a crack tears open behind the strings.
+4. **Strum**: the guitarist's click zooms straight into the guitar close-up, still on the TV screen with the curtains framing it. Over the softly glowing strings the cursor becomes the star head. Pluck or strum (from *Strum the Strings*) until a crack tears open behind the strings.
 5. **Tear**: grab the torn edge and pull it outward to rip the screen open (from *Tear Open the Screen*). The performance space shows through.
 6. **Inside**: the camera dives through the screen and the music becomes clear. Spotlights, stage lights, a glowing TV, rings from the guitarist's star and a halftone-dot equalizer on the floor move with the music. After a short moment "You have reached the other side of the screen" appears with **Restart**, which returns everything to the start.
 

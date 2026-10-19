@@ -9,7 +9,7 @@
   --cyan-deep: #5fb9c0;
   --halo: rgba(255, 255, 255, .9);
   --cursor-star: url("../assets/images/cursor-star.svg") 16 16, pointer;
-  --cursor-shards: url("../assets/images/cursor-star-shards.svg") 24 24, pointer;
+  --cursor-shards: url("../assets/images/cursor-star-shards.svg") 30 30, pointer;
   color-scheme: dark;
 }
 
@@ -65,7 +65,7 @@ body {
   padding: 0;
   border: 0;
   background: transparent;
-  cursor: pointer;
+  cursor: var(--cursor-shards);
   outline: none;
 }
 .halo-target::before {
@@ -177,7 +177,7 @@ body {
 }
 .member.is-next {
   pointer-events: auto;
-  cursor: pointer;
+  cursor: var(--cursor-shards);
 }
 /* the glow animation itself is written by js/looks.js from the glow settings */
 
@@ -188,12 +188,12 @@ body {
   top: 864px;
   width: 36px;
   height: 92px;
-  cursor: default;
+  cursor: var(--cursor-star);
   outline: none;
   pointer-events: none;
 }
-#play.is-armed { pointer-events: auto; cursor: pointer; }
-#play.is-spent { cursor: default; }
+#play.is-armed { pointer-events: auto; cursor: var(--cursor-shards); }
+#play.is-spent { cursor: var(--cursor-star); }
 #play-well {
   position: absolute;
   left: 0;
@@ -388,7 +388,7 @@ body {
   background: #fbfafa;
   border: 0;
   padding: 22px 64px;
-  cursor: pointer;
+  cursor: var(--cursor-shards);
   box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--pink), 10px 10px 0 4px rgba(143, 227, 232, .8), 0 0 30px rgba(255, 255, 255, .35);
   transition: transform .15s ease, box-shadow .15s ease;
 }
@@ -438,7 +438,7 @@ body {
 }
 .tune-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--tune-line); }
 .tune-head h2 { margin: 0; font-size: 14px; font-weight: 400; letter-spacing: .08em; text-transform: uppercase; color: var(--tune-pink); }
-.tune-toggle { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--tune-line); border-radius: 8px; background: transparent; color: var(--tune-ink); cursor: pointer; }
+.tune-toggle { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--tune-line); border-radius: 8px; background: transparent; color: var(--tune-ink); cursor: var(--cursor-shards); }
 .tune-toggle svg { width: 16px; height: 16px; transition: transform .25s ease; }
 .tune-body { overflow-y: auto; padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
 #tune.is-collapsed { width: auto; }
@@ -448,7 +448,7 @@ body {
 .tune-sec { display: flex; flex-direction: column; gap: 9px; padding: 12px 0 14px; border-bottom: 1px solid var(--tune-line); }
 .tune-sec-head { display: flex; align-items: center; justify-content: space-between; }
 .tune-sec h3 { margin: 0; font-size: 15px; font-weight: 400; }
-.tune-try { font: inherit; font-size: 12px; color: var(--tune-cyan); background: transparent; border: 1px solid rgba(111, 227, 234, .45); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.tune-try { font: inherit; font-size: 12px; color: var(--tune-cyan); background: transparent; border: 1px solid rgba(111, 227, 234, .45); border-radius: 999px; padding: 4px 12px; cursor: var(--cursor-shards); }
 .tune-try:hover { background: rgba(111, 227, 234, .12); }
 .tune-preview { display: block; width: 100%; height: 92px; border-radius: 8px; background: var(--tune-raised); }
 .tune-row { display: flex; flex-direction: column; gap: 4px; }
@@ -457,7 +457,7 @@ body {
 .tune-ctl { display: flex; align-items: center; gap: 10px; }
 .tune-ctl output { min-width: 62px; text-align: right; font-variant-numeric: tabular-nums; color: var(--tune-cyan); }
 .tune-ctl input[type=range] {
-  flex: 1; min-width: 0; height: 18px; margin: 0; background: transparent; cursor: pointer;
+  flex: 1; min-width: 0; height: 18px; margin: 0; background: transparent; cursor: var(--cursor-shards);
   -webkit-appearance: none; appearance: none;
 }
 .tune-ctl input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--tune-pink) var(--p, 50%), rgba(255, 255, 255, .18) var(--p, 50%)); }
@@ -467,29 +467,36 @@ body {
 .tune-ctl input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid var(--tune-pink); }
 .tune-ctl input[type=range].is-changed + output::after { content: " •"; color: var(--tune-pink); }
 .tune-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.tune-chip { font: inherit; font-size: 11.5px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--tune-line); background: transparent; color: var(--tune-dim); cursor: pointer; }
+.tune-chip { font: inherit; font-size: 11.5px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--tune-line); background: transparent; color: var(--tune-dim); cursor: var(--cursor-shards); }
 .tune-chip:hover { color: var(--tune-ink); }
 .tune-chip.is-on { background: var(--tune-pink); border-color: var(--tune-pink); color: #fff; }
 .tune-actions { display: flex; gap: 8px; padding-top: 12px; }
-.tune-btn { flex: 1; font: inherit; padding: 9px 10px; border-radius: 9px; border: 1px solid var(--tune-line); background: var(--tune-raised); color: var(--tune-ink); cursor: pointer; }
+.tune-btn { flex: 1; font: inherit; padding: 9px 10px; border-radius: 9px; border: 1px solid var(--tune-line); background: var(--tune-raised); color: var(--tune-ink); cursor: var(--cursor-shards); }
 .tune-btn:hover { border-color: var(--tune-pink); }
 .tune-btn.is-primary { background: var(--tune-pink); border-color: var(--tune-pink); color: #fff; }
 .tune-status { margin: 4px 0 0; min-height: 1.35em; font-size: 12px; color: var(--tune-cyan); }
 .tune-copytext { width: 100%; height: 150px; box-sizing: border-box; resize: vertical; font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--tune-ink); background: rgba(0, 0, 0, .35); border: 1px solid var(--tune-line); border-radius: 8px; padding: 8px; -webkit-user-select: text; user-select: text; }
 #tune button:focus-visible, #tune input:focus-visible { outline: 2px solid var(--tune-cyan); outline-offset: 2px; }
 .tune-tabs { display: flex; gap: 4px; padding: 10px 0 2px; }
-.tune-tab { flex: 1; font: inherit; font-size: 13px; padding: 7px 8px; border-radius: 9px; border: 1px solid var(--tune-line); background: transparent; color: var(--tune-dim); cursor: pointer; }
+.tune-tab { flex: 1; font: inherit; font-size: 13px; padding: 7px 8px; border-radius: 9px; border: 1px solid var(--tune-line); background: transparent; color: var(--tune-dim); cursor: var(--cursor-shards); }
 .tune-tab:hover { color: var(--tune-ink); }
 .tune-tab.is-on { background: var(--tune-raised); border-color: var(--tune-pink); color: var(--tune-ink); }
 .tune-pane[hidden] { display: none; }
 .tune-sec-btns { display: flex; gap: 6px; }
 .tune-row-inline { flex-direction: row; align-items: center; justify-content: space-between; }
 .tune-row-inline .tune-ctl { gap: 8px; }
-.tune-ctl input[type=color] { width: 40px; height: 26px; padding: 0 2px; border: 1px solid var(--tune-line); border-radius: 6px; background: transparent; cursor: pointer; }
-.tune-ctl select { flex: 1; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--tune-line); background: #1d0f1d; color: var(--tune-ink); cursor: pointer; }
+.tune-ctl input[type=color] { width: 40px; height: 26px; padding: 0 2px; border: 1px solid var(--tune-line); border-radius: 6px; background: transparent; cursor: var(--cursor-shards); }
+.tune-ctl select { flex: 1; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--tune-line); background: #1d0f1d; color: var(--tune-ink); cursor: var(--cursor-shards); }
 .tune-ctl output.is-changed::after, .tune-ctl select.is-changed + output::after { content: " •"; color: var(--tune-pink); }
 .tune-ctl select.is-changed { border-color: var(--tune-pink); }
 .tune-notes { margin: -2px 0 0; font-size: 11.5px; color: var(--tune-dim); font-variant-numeric: tabular-nums; }
 .tune-glow-box { display: grid; place-items: center; overflow: hidden; background: #2a1430; }
 .tune-glow-demo { height: 76px; width: auto; }
 #tune select:focus-visible { outline: 2px solid var(--tune-cyan); outline-offset: 2px; }
+
+/* the pointer is the pink star everywhere; over anything you can interact with it becomes the
+   star-headed guitarist's head (the strings and the paper edge switch it from js) */
+html, body, #stage, #tune, #tune * { cursor: var(--cursor-star); }
+#tune button, #tune select, #tune input, #tune label[for] { cursor: var(--cursor-shards); }
+#tune textarea { cursor: text; }
+.member:not(.is-next) { cursor: var(--cursor-star); }
