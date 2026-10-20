@@ -6,7 +6,7 @@ window.Tuning = (() => {
 
   const SAVED = {
     // motion
-    key: { hold: 400, travel: 6, rebound: 150, motion: 'Spring/Bounce' },
+    key: { hold: 900, travel: 8, rebound: 370, motion: 'Ease In' },
     strings: { maxPull: 39, amplitude: 70, decay: 4.7, motion: 'Ease In' },
     paper: { tearDistance: 1000, roughness: 60, shadow: 30, motion: 'Linear' },
     // graphics
